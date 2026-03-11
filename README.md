@@ -32,11 +32,9 @@
 
 ## Deployment
 
-- Frontend URL: `https://<your-frontend-url>`
-- Backend URL: `https://<your-backend-url>`
-- Swagger URL: `https://<your-backend-url>/api/docs`
-
-Replace the placeholders above with your live deploy links before submission.
+- Frontend URL: `https://coworking-v6bt.onrender.com`
+- Backend URL: `https://coworking-backend-9ngl.onrender.com`
+- Swagger URL: `https://coworking-backend-9ngl.onrender.com/api/docs/`
 
 ---
 
@@ -76,7 +74,7 @@ Coworking/
 ### 1. Clone the repository
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/Jojje84/Coworking.git
 cd Coworking
 ```
 
@@ -142,6 +140,7 @@ node src/seed/seedBookingsFromMock.js
 ## API Documentation
 
 Full interactive docs are available at `/api/docs` when backend is running.
+Live Swagger docs: `https://coworking-backend-9ngl.onrender.com/api/docs/`
 
 ### Authentication
 

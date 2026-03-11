@@ -10,6 +10,10 @@ const options = {
     },
     servers: [
       {
+        url: "https://coworking-backend-9ngl.onrender.com",
+        description: "Production server",
+      },
+      {
         url: "http://localhost:5000",
         description: "Local development server",
       },
