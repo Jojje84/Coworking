@@ -229,6 +229,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    if (user?.role !== "admin") {
+      setUsers([]);
+      return;
+    }
+
     async function loadUsers() {
       try {
         const res = await fetch(`${API_BASE_URL}/api/users`, {
@@ -252,7 +257,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
 
     loadUsers();
-  }, [token]);
+  }, [token, user?.role]);
 
   useEffect(() => {
     if (!token) return;

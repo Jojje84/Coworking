@@ -295,6 +295,8 @@ Common error responses:
 | PATCH | `/api/users/:id` | Admin | Update a user |
 | DELETE | `/api/users/:id` | Admin | Delete a user |
 
+The frontend only requests `GET /api/users` for admins, which avoids expected `403` responses for regular users.
+
 ---
 
 ## Real-time Notifications (Socket.IO)

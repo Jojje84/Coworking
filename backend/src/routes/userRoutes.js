@@ -103,6 +103,7 @@ router.patch("/me", requireAuth, updateMe);
  * /api/users:
  *   get:
  *     summary: Get all users (admin only)
+ *     description: Admin-only endpoint used by the admin dashboard to list all users.
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
