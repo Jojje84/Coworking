@@ -1,6 +1,14 @@
-<h1 align='center'>Coworking Space Booking Platform</h1>
+<h1 align='center'>Coworking Space Booking Platform 💼</h1>
 
 <p align="center">A full-stack booking platform where users can register, log in, and book workspaces or conference rooms. Administrators can manage rooms, users, and bookings in real time.</p>
+
+<p align="center">
+  <img alt="Backend" src="https://img.shields.io/badge/Backend-Node.js%20%2B%20Express-43853D?logo=node.js&logoColor=white" />
+  <img alt="Frontend" src="https://img.shields.io/badge/Frontend-React%20%2B%20TypeScript-61DAFB?logo=react&logoColor=black" />
+  <img alt="Database" src="https://img.shields.io/badge/Database-MongoDB-47A248?logo=mongodb&logoColor=white" />
+  <img alt="Realtime" src="https://img.shields.io/badge/Realtime-Socket.IO-010101?logo=socket.io&logoColor=white" />
+  <img alt="Docs" src="https://img.shields.io/badge/API-Swagger-85EA2D?logo=swagger&logoColor=black" />
+</p>
 
 ---
 
@@ -323,6 +331,21 @@ Frontend may map roles internally to lowercase (`"user"`, `"admin"`).
 
 ---
 
+## Screenshots
+
+- Dashboard
+  ![Dashboard](screenshots/dashboard.png)
+
+- Book Room page
+  ![Book Room](screenshots/book-room.png)
+
+- Admin Bookings page
+  ![Admin Bookings](screenshots/admin-bookings.png)
+
+Add your images to `screenshots/` or update these paths to your actual files.
+
+---
+
 ## License
 
 This project is licensed under the MIT License.
@@ -331,6 +354,10 @@ This project is licensed under the MIT License.
 
 ## Contact
 
-- GitHub: https://github.com/Jojje84
-- LinkedIn: https://www.linkedin.com/in/jorge-avila-35622030/
-- Email: mailto:jorgeavilas@icloud.com
+👤 Jorge
+
+[![GitHub](https://img.shields.io/badge/GitHub-Profile-181717?logo=github&logoColor=white)](https://github.com/Jojje84) 
+&nbsp;
+[![Email](https://img.shields.io/badge/Email-Contact-blue?logo=icloud&logoColor=white)](mailto:jorgeavilas@icloud.com) 
+&nbsp;
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Profile-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/in/jorge-avila-35622030/)
