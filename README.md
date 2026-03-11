@@ -1,11 +1,26 @@
-# Coworking Space Booking Platform
+<h1 align='center'>Coworking Space Booking Platform</h1>
 
-A full-stack booking platform for a coworking space. Users can register, log in, and book workspaces or conference rooms. Administrators can manage users, rooms, and bookings.
+<p align="center">A full-stack booking platform where users can register, log in, and book workspaces or conference rooms. Administrators can manage rooms, users, and bookings in real time.</p>
 
-## Tech Stack
+---
 
-- **Backend**: Node.js, Express.js, MongoDB (Mongoose), Redis (caching), Socket.IO (real-time), JWT + bcrypt (auth)
-- **Frontend**: React, TypeScript, Vite, Tailwind CSS
+## Features
+
+- JWT authentication with role-based access (User/Admin)
+- Room management (CRUD)
+- Booking management (create, update, delete as owner/admin)
+- Live updates with Socket.IO
+- Redis room caching (optional)
+- Interactive API docs with Swagger
+
+---
+
+## Technologies
+
+- Backend: Node.js, Express.js, MongoDB (Mongoose), Redis, Socket.IO, JWT, bcrypt
+- Frontend: React, TypeScript, Vite, Tailwind CSS
+
+---
 
 ## Deployment
 
@@ -17,15 +32,38 @@ Replace the placeholders above with your live deploy links before submission.
 
 ---
 
+## Project Structure
+
+```text
+Coworking/
+├── backend/
+│   └── src/
+│       ├── config/
+│       ├── controllers/
+│       ├── middleware/
+│       ├── models/
+│       ├── routes/
+│       ├── seed/
+│       ├── services/
+│       └── utils/
+├── frontend/
+│   └── src/
+│       └── app/
+│           ├── components/
+│           ├── context/
+│           └── pages/
+└── README.md
+```
+
+---
+
 ## Getting Started
 
 ### Prerequisites
 
 - Node.js v18+
 - MongoDB (local or Atlas)
-- Redis (optional — rooms are cached if available)
-
----
+- Redis (optional, rooms are cached if available)
 
 ### 1. Clone the repository
 
@@ -34,9 +72,7 @@ git clone <repo-url>
 cd Coworking
 ```
 
----
-
-### 2. Backend
+### 2. Backend setup
 
 ```bash
 cd backend
@@ -50,22 +86,20 @@ PORT=5000
 MONGO_URI=mongodb://localhost:27017/coworking
 JWT_SECRET=your_jwt_secret
 JWT_EXPIRES_IN=1d
-REDIS_URL=redis://localhost:6379   # optional
+REDIS_URL=redis://localhost:6379
 CLIENT_ORIGIN=http://localhost:5173
 ```
 
-Start the development server:
+Start backend:
 
 ```bash
 npm run dev
 ```
 
-The API will be available at `http://localhost:5000`.  
+Backend runs on `http://localhost:5000`.
 Swagger docs: `http://localhost:5000/api/docs`
 
----
-
-### 3. Frontend
+### 3. Frontend setup
 
 ```bash
 cd frontend
@@ -78,17 +112,15 @@ Create a `.env` file in `frontend/`:
 VITE_API_URL=http://localhost:5000
 ```
 
-Start the development server:
+Start frontend:
 
 ```bash
 npm run dev
 ```
 
-The app will be available at `http://localhost:5173`.
+Frontend runs on `http://localhost:5173`.
 
----
-
-### 4. Seed the database (optional)
+### 4. Seed data (optional)
 
 ```bash
 cd backend
@@ -101,7 +133,7 @@ node src/seed/seedBookingsFromMock.js
 
 ## API Documentation
 
-Full interactive docs are available at `/api/docs` when the backend is running.
+Full interactive docs are available at `/api/docs` when backend is running.
 
 ### Authentication
 
@@ -110,7 +142,8 @@ Full interactive docs are available at `/api/docs` when the backend is running.
 | POST | `/api/auth/register` | Register a new user |
 | POST | `/api/auth/login` | Log in and receive a JWT token |
 
-**Register request body:**
+Register request body:
+
 ```json
 {
   "username": "anna",
@@ -119,7 +152,8 @@ Full interactive docs are available at `/api/docs` when the backend is running.
 }
 ```
 
-**Login request body:**
+Login request body:
+
 ```json
 {
   "email": "anna@example.com",
@@ -127,7 +161,8 @@ Full interactive docs are available at `/api/docs` when the backend is running.
 }
 ```
 
-**Login response:**
+Login response:
+
 ```json
 {
   "token": "<jwt>",
@@ -135,18 +170,17 @@ Full interactive docs are available at `/api/docs` when the backend is running.
 }
 ```
 
----
-
 ### Rooms
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/api/rooms` | — | Get all rooms |
+| GET | `/api/rooms` | - | Get all rooms |
 | POST | `/api/rooms` | Admin | Create a room |
 | PUT | `/api/rooms/:id` | Admin | Update a room |
 | DELETE | `/api/rooms/:id` | Admin | Delete a room |
 
-**Create room request body:**
+Create room request body:
+
 ```json
 {
   "name": "Conference Room 1",
@@ -157,7 +191,8 @@ Full interactive docs are available at `/api/docs` when the backend is running.
 }
 ```
 
-**Create room success response (201):**
+Create room success response (201):
+
 ```json
 {
   "_id": "67cabc1234567890abcdef12",
@@ -171,23 +206,22 @@ Full interactive docs are available at `/api/docs` when the backend is running.
 }
 ```
 
----
-
 ### Bookings
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | GET | `/api/bookings` | User/Admin | Get own bookings as User or all bookings as Admin |
 | GET | `/api/bookings/calendar` | User/Admin | Get bookings in a date range for calendar view |
-| GET | `/api/bookings/availability` | — | Check room availability |
+| GET | `/api/bookings/availability` | - | Check room availability |
 | POST | `/api/bookings` | User/Admin | Create a booking |
 | PUT | `/api/bookings/:id` | Owner/Admin | Update a booking |
 | DELETE | `/api/bookings/:id` | Owner/Admin | Permanently delete a booking |
 
-`DELETE /api/bookings/:id` is implemented as owner-or-admin in backend logic.
+`DELETE /api/bookings/:id` is implemented as owner or admin in backend logic.
 If the requester is neither owner nor admin, the API returns `403 Not allowed`.
 
-**Create booking request body:**
+Create booking request body:
+
 ```json
 {
   "roomId": "<room-id>",
@@ -196,7 +230,8 @@ If the requester is neither owner nor admin, the API returns `403 Not allowed`.
 }
 ```
 
-**Get bookings response example (GET `/api/bookings`):**
+Get bookings response example (GET `/api/bookings`):
+
 ```json
 [
   {
@@ -222,9 +257,10 @@ If the requester is neither owner nor admin, the API returns `403 Not allowed`.
 ]
 ```
 
-**Common error responses:**
+Common error responses:
 
 `409 Room is already booked`
+
 ```json
 {
   "status": "fail",
@@ -233,6 +269,7 @@ If the requester is neither owner nor admin, the API returns `403 Not allowed`.
 ```
 
 `401 Unauthorized`
+
 ```json
 {
   "status": "fail",
@@ -240,14 +277,12 @@ If the requester is neither owner nor admin, the API returns `403 Not allowed`.
 }
 ```
 
----
-
 ### Users
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | GET | `/api/users/me` | User/Admin | Get own profile |
-| PATCH | `/api/users/me` | User/Admin | Update own profile / change password |
+| PATCH | `/api/users/me` | User/Admin | Update own profile or change password |
 | GET | `/api/users` | Admin | Get all users |
 | POST | `/api/users` | Admin | Create a user |
 | PATCH | `/api/users/:id` | Admin | Update a user |
@@ -257,7 +292,7 @@ If the requester is neither owner nor admin, the API returns `403 Not allowed`.
 
 ## Real-time Notifications (Socket.IO)
 
-The server emits events via Socket.IO when data changes:
+The server emits these events when data changes:
 
 | Event | Description |
 |-------|-------------|
@@ -272,7 +307,7 @@ The server emits events via Socket.IO when data changes:
 | `user:updated` | A user was updated |
 | `user:deleted` | A user was deleted |
 
-Authentication is required to connect — pass the JWT token via `socket.handshake.auth.token`.
+Socket authentication is required: pass JWT in `socket.handshake.auth.token`.
 
 ---
 
@@ -280,29 +315,22 @@ Authentication is required to connect — pass the JWT token via `socket.handsha
 
 | Role | Permissions |
 |------|-------------|
-| User | Register, log in, create/update/delete own bookings, update own profile |
-| Admin | Everything above + manage all rooms, users, and bookings |
+| User | Register, log in, create, update and delete own bookings, update own profile |
+| Admin | All User permissions plus manage all rooms, users and bookings |
 
 Role values in API responses are `"User"` and `"Admin"`.
-Frontend may internally map them to lowercase (`"user"`, `"admin"`) for UI logic.
+Frontend may map roles internally to lowercase (`"user"`, `"admin"`).
 
 ---
 
-## Project Structure
+## License
 
-```text
-backend/
-  src/
-    controllers/
-    routes/
-    models/
-    middleware/
-    config/
+This project is licensed under the MIT License.
 
-frontend/
-  src/
-    app/
-      pages/
-      components/
-      context/
-```
+---
+
+## Contact
+
+- GitHub: https://github.com/Jojje84
+- LinkedIn: https://www.linkedin.com/in/jorge-avila-35622030/
+- Email: mailto:jorgeavilas@icloud.com
