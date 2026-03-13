@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// Data Context
+// ─────────────────────────────────────────
+
 import {
   createContext,
   useContext,
@@ -62,6 +66,10 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:5000";
 
+// ─────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────
+
 const mapRoomTypeFromApi = (t: string) => t;
 const mapRoomTypeToApi = (t: string) => t;
 
@@ -122,6 +130,10 @@ function mapUserFromApi(u: any): User {
   };
 }
 
+// ─────────────────────────────────────────
+// DataProvider
+// ─────────────────────────────────────────
+
 export function DataProvider({ children }: { children: ReactNode }) {
   const { token, user } = useAuth();
 
@@ -164,6 +176,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     [token],
   );
 
+  // ─────────────────────────────────────────
+  // Load Rooms
+  // ─────────────────────────────────────────
+
   useEffect(() => {
     if (!token) {
       setRooms([]);
@@ -197,6 +213,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     loadRooms();
   }, [token]);
 
+  // ─────────────────────────────────────────
+  // Load Bookings
+  // ─────────────────────────────────────────
+
   useEffect(() => {
     if (!token) {
       setBookings([]);
@@ -222,6 +242,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     loadBookings();
   }, [token]);
+
+  // ─────────────────────────────────────────
+  // Load Users (Admin only)
+  // ─────────────────────────────────────────
 
   useEffect(() => {
     if (!token) {
@@ -258,6 +282,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     loadUsers();
   }, [token, user?.role]);
+
+  // ─────────────────────────────────────────
+  // Socket.IO — Real-time Events
+  // ─────────────────────────────────────────
 
   useEffect(() => {
     if (!token) return;
@@ -395,6 +423,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     };
   }, [token, user, loadCalendarBookings]);
 
+  // ─────────────────────────────────────────
+  // Room Actions
+  // ─────────────────────────────────────────
+
   const addRoom = async (room: Omit<Room, "id">): Promise<boolean> => {
     if (!token) return false;
 
@@ -465,7 +497,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (room.imageUrl !== undefined) body.imageUrl = room.imageUrl;
 
       const res = await fetch(`${API_BASE_URL}/api/rooms/${id}`, {
-        method: "PATCH",
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
           ...authHeaders(token),
@@ -543,6 +575,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return false;
     }
   };
+
+  // ─────────────────────────────────────────
+  // Booking Actions
+  // ─────────────────────────────────────────
 
   const addBooking = async (
     booking: Omit<Booking, "id" | "createdAt" | "status">,
@@ -676,6 +712,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return false;
     }
   };
+
+  // ─────────────────────────────────────────
+  // User Actions (Admin)
+  // ─────────────────────────────────────────
 
   const addUser = async (newUser: {
     username: string;
@@ -849,6 +889,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // ─────────────────────────────────────────
+  // Availability Check
+  // ─────────────────────────────────────────
+
   const isRoomAvailable = useCallback(
     (
       roomId: string,
@@ -907,6 +951,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
 
+// ─────────────────────────────────────────
+// useData Hook
+// ─────────────────────────────────────────
+
 export function useData() {
   const context = useContext(DataContext);
   if (context === undefined) {
@@ -914,3 +962,5 @@ export function useData() {
   }
   return context;
 }
+
+

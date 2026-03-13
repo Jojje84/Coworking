@@ -1,5 +1,9 @@
 import mongoose from "mongoose";
 
+// ─────────────────────────────────────────
+// Database Connection
+// ─────────────────────────────────────────
+
 export async function connectDB() {
   try {
     const uri = process.env.MONGO_URI;

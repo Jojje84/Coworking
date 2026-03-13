@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// Book Room
+// ─────────────────────────────────────────
+
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
@@ -801,3 +805,6 @@ export function BookRoom() {
     </Layout>
   );
 }
+
+
+

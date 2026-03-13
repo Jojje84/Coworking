@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// Auth Context
+// ─────────────────────────────────────────
+
 import {
   createContext,
   useContext,
@@ -34,6 +38,10 @@ const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:5000";
 const LS_TOKEN_KEY = "cowork_token";
 const LS_USER_KEY = "cowork_user";
 
+// ─────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────
+
 function mapApiUser(apiUser: any): User {
   return {
     id: apiUser.id ?? apiUser._id ?? "",
@@ -44,9 +52,17 @@ function mapApiUser(apiUser: any): User {
   };
 }
 
+// ─────────────────────────────────────────
+// AuthProvider
+// ─────────────────────────────────────────
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+
+  // ─────────────────────────────────────────
+  // Restore Session from LocalStorage
+  // ─────────────────────────────────────────
 
   useEffect(() => {
     try {
@@ -90,6 +106,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(LS_TOKEN_KEY);
     localStorage.removeItem(LS_USER_KEY);
   };
+
+  // ─────────────────────────────────────────
+  // Socket.IO — Real-time Profile Updates
+  // ─────────────────────────────────────────
 
   useEffect(() => {
     if (!token || !user?.id) return;
@@ -141,6 +161,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [token, user]);
 
+  // ─────────────────────────────────────────
+  // Login
+  // ─────────────────────────────────────────
+
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
@@ -175,6 +199,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return false;
     }
   };
+
+  // ─────────────────────────────────────────
+  // Register
+  // ─────────────────────────────────────────
 
   const register = async (
     username: string,
@@ -213,6 +241,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return false;
     }
   };
+
+  // ─────────────────────────────────────────
+  // Update Profile
+  // ─────────────────────────────────────────
 
   const updateProfile = async (data: {
     username?: string;
@@ -254,6 +286,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // ─────────────────────────────────────────
+  // Logout
+  // ─────────────────────────────────────────
+
   const logout = () => {
     clearSession();
     toast.info("You have been logged out");
@@ -267,6 +303,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// ─────────────────────────────────────────
+// useAuth Hook
+// ─────────────────────────────────────────
+
 export function useAuth() {
   const context = useContext(AuthContext);
 
@@ -276,3 +316,6 @@ export function useAuth() {
 
   return context;
 }
+
+
+

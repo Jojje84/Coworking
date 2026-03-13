@@ -3,11 +3,19 @@ import { getRedis } from "../config/redis.js";
 import { AppError } from "../utils/AppError.js";
 import { isNonEmptyString, isValidObjectId } from "../utils/validation.js";
 
+// ─────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────
+
 function emitRoomEvent(req, event, payload) {
   const io = req.app.get("io");
   if (!io || !payload) return;
   io.emit(event, payload);
 }
+
+// ─────────────────────────────────────────
+// Get All Rooms
+// ─────────────────────────────────────────
 
 export async function getRooms(req, res, next) {
   try {
@@ -33,6 +41,10 @@ export async function getRooms(req, res, next) {
     next(err);
   }
 }
+
+// ─────────────────────────────────────────
+// Create Room
+// ─────────────────────────────────────────
 
 export async function createRoom(req, res, next) {
   try {
@@ -79,6 +91,10 @@ export async function createRoom(req, res, next) {
     next(err);
   }
 }
+
+// ─────────────────────────────────────────
+// Update Room
+// ─────────────────────────────────────────
 
 export async function updateRoom(req, res, next) {
   try {
@@ -149,6 +165,10 @@ export async function updateRoom(req, res, next) {
     next(err);
   }
 }
+
+// ─────────────────────────────────────────
+// Delete Room
+// ─────────────────────────────────────────
 
 export async function deleteRoom(req, res, next) {
   try {

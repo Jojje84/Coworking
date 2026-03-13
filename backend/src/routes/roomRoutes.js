@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// Room Routes
+// ─────────────────────────────────────────
+
 import express from "express";
 import {
   getRooms,
@@ -117,6 +121,8 @@ router.post("/", requireAuth, requireAdmin, createRoom);
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.put("/:id", requireAuth, requireAdmin, updateRoom);
+
+router.patch("/:id", requireAuth, requireAdmin, updateRoom);
 
 /**
  * @swagger

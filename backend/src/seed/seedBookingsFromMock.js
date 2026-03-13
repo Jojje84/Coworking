@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// Seed Bookings From Mock
+// ─────────────────────────────────────────
+
 import dotenv from "dotenv";
 import mongoose from "mongoose"; // ✅ lägg till denna
 import { connectDB } from "../config/db.js";

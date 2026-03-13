@@ -3,6 +3,10 @@ import { Room } from "../models/Room.js";
 import { AppError } from "../utils/AppError.js";
 import { isValidObjectId } from "../utils/validation.js";
 
+// ─────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────
+
 function toPlainBooking(doc) {
   if (!doc) return null;
   return typeof doc.toObject === "function" ? doc.toObject() : doc;
@@ -95,6 +99,10 @@ function sanitizeCalendarBooking(booking, currentUserId) {
   };
 }
 
+// ─────────────────────────────────────────
+// Get Bookings
+// ─────────────────────────────────────────
+
 export async function getBookings(req, res, next) {
   try {
     await syncCompletedBookings();
@@ -124,6 +132,10 @@ export async function getBookings(req, res, next) {
     next(err);
   }
 }
+
+// ─────────────────────────────────────────
+// Get Calendar Bookings
+// ─────────────────────────────────────────
 
 export async function getCalendarBookings(req, res, next) {
   try {
@@ -170,6 +182,10 @@ export async function getCalendarBookings(req, res, next) {
     next(err);
   }
 }
+
+// ─────────────────────────────────────────
+// Check Availability
+// ─────────────────────────────────────────
 
 export async function checkAvailability(req, res, next) {
   try {
@@ -219,6 +235,10 @@ export async function checkAvailability(req, res, next) {
     next(err);
   }
 }
+
+// ─────────────────────────────────────────
+// Create Booking
+// ─────────────────────────────────────────
 
 export async function createBooking(req, res, next) {
   try {
@@ -295,6 +315,10 @@ export async function createBooking(req, res, next) {
   }
 }
 
+// ─────────────────────────────────────────
+// Update Booking
+// ─────────────────────────────────────────
+
 export async function updateBooking(req, res, next) {
   try {
     await syncCompletedBookings();
@@ -324,7 +348,20 @@ export async function updateBooking(req, res, next) {
       return next(new AppError("Not allowed", 403));
     }
 
-    const { startTime, endTime, status } = req.body;
+    const { roomId, startTime, endTime, status } = req.body;
+
+    if (roomId !== undefined) {
+      if (!isValidObjectId(roomId)) {
+        return next(new AppError("Invalid roomId", 400));
+      }
+
+      const room = await Room.findById(roomId);
+      if (!room) {
+        return next(new AppError("Room not found", 404));
+      }
+
+      booking.roomId = roomId;
+    }
 
     if (startTime !== undefined) {
       booking.startTime = new Date(startTime);
@@ -391,6 +428,10 @@ export async function updateBooking(req, res, next) {
     next(err);
   }
 }
+
+// ─────────────────────────────────────────
+// Delete Booking
+// ─────────────────────────────────────────
 
 export async function deleteBooking(req, res, next) {
   try {

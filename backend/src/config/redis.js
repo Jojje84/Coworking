@@ -1,5 +1,9 @@
 import Redis from "ioredis";
 
+// ─────────────────────────────────────────
+// Redis Connection
+// ─────────────────────────────────────────
+
 let redis = null;
 
 export function getRedis() {

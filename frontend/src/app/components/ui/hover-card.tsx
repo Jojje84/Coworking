@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// Hover Card
+// ─────────────────────────────────────────
+
 "use client";
 
 import * as React from "react";
@@ -42,3 +46,6 @@ function HoverCardContent({
 }
 
 export { HoverCard, HoverCardTrigger, HoverCardContent };
+
+
+

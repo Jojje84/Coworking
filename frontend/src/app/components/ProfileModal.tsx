@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// Profile Modal
+// ─────────────────────────────────────────
+
 import { FormEvent, useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { toast } from "sonner";
@@ -193,3 +197,6 @@ export function ProfileModal({ isOpen, onClose }: ProfileModalProps) {
     </div>
   );
 }
+
+
+

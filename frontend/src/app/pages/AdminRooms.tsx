@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// Admin Rooms
+// ─────────────────────────────────────────
+
 import React, { useMemo, useState } from "react";
 import { useData } from "../context/DataContext";
 import { Layout } from "../components/Layout";
@@ -574,3 +578,6 @@ export function AdminRooms() {
     </Layout>
   );
 }
+
+
+

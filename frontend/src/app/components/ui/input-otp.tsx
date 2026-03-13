@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// Input Otp
+// ─────────────────────────────────────────
+
 "use client";
 
 import * as React from "react";
@@ -75,3 +79,6 @@ function InputOTPSeparator({ ...props }: React.ComponentProps<"div">) {
 }
 
 export { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator };
+
+
+

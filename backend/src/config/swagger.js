@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// Swagger Configuration
+// ─────────────────────────────────────────
+
 import swaggerJSDoc from "swagger-jsdoc";
 
 const options = {
@@ -203,6 +207,11 @@ const options = {
           description:
             "Users can update their own bookings. Admins can update any booking. Cancel a booking by setting status to cancelled.",
           properties: {
+            roomId: {
+              type: "string",
+              example: "67cabc1234567890abcdef99",
+              description: "Change the booked room (owner or admin only)",
+            },
             startTime: {
               type: "string",
               format: "date-time",

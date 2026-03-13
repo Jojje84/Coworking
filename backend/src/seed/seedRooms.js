@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// Seed Rooms
+// ─────────────────────────────────────────
+
 import dotenv from "dotenv";
 import { connectDB } from "../config/db.js";
 import { Room } from "../models/Room.js";

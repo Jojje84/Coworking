@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// Register
+// ─────────────────────────────────────────
+
 import { useState } from "react";
 import { useNavigate, Link } from "react-router";
 import { useAuth } from "../context/AuthContext";
@@ -244,3 +248,6 @@ export function Register() {
     </div>
   );
 }
+
+
+

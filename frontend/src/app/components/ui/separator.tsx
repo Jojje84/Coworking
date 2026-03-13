@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// Separator
+// ─────────────────────────────────────────
+
 "use client";
 
 import * as React from "react";
@@ -26,3 +30,6 @@ function Separator({
 }
 
 export { Separator };
+
+
+

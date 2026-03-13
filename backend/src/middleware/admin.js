@@ -1,6 +1,10 @@
 import { User } from "../models/User.js";
 import { AppError } from "../utils/AppError.js";
 
+// ─────────────────────────────────────────
+// Admin Guard Middleware
+// ─────────────────────────────────────────
+
 export async function requireAdmin(req, res, next) {
   try {
     if (!req.user?.id) {

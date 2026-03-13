@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// Switch
+// ─────────────────────────────────────────
+
 "use client";
 
 import * as React from "react";
@@ -29,3 +33,6 @@ function Switch({
 }
 
 export { Switch };
+
+
+

@@ -4,11 +4,16 @@ import { User } from "../models/User.js";
 import { AppError } from "../utils/AppError.js";
 import { isValidEmail, isNonEmptyString } from "../utils/validation.js";
 import { createUserService } from "../services/userService.js";
+import { getJwtSecret } from "../config/env.js";
+
+// ─────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────
 
 function signToken(user) {
   return jwt.sign(
     { id: user._id.toString(), role: user.role },
-    process.env.JWT_SECRET,
+    getJwtSecret(),
     { expiresIn: process.env.JWT_EXPIRES_IN || "1d" },
   );
 }
@@ -35,6 +40,10 @@ function emitUserCreated(req, payload) {
   io.to("admins").emit("user:created", payload);
 }
 
+// ─────────────────────────────────────────
+// Register
+// ─────────────────────────────────────────
+
 export async function register(req, res, next) {
   try {
     const user = await createUserService({
@@ -57,6 +66,10 @@ export async function register(req, res, next) {
     next(err);
   }
 }
+
+// ─────────────────────────────────────────
+// Login
+// ─────────────────────────────────────────
 
 export async function login(req, res, next) {
   try {

@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// Dashboard
+// ─────────────────────────────────────────
+
 import { useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
@@ -607,3 +611,6 @@ function AdminDashboard() {
     </Layout>
   );
 }
+
+
+

@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// Routes
+// ─────────────────────────────────────────
+
 import { createBrowserRouter, Navigate } from "react-router";
 import { useAuth } from "./context/AuthContext";
 import { Login } from "./pages/Login";
@@ -95,3 +99,6 @@ export const router = createBrowserRouter([
     element: <Navigate to="/" replace />,
   },
 ]);
+
+
+

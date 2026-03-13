@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// Booking Routes
+// ─────────────────────────────────────────
+
 import express from "express";
 import {
   getBookings,

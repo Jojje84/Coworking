@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────
+
 export type UserRole = "user" | "admin";
 
 export interface User {
@@ -38,3 +42,6 @@ export interface CalendarBooking {
   status: "active" | "completed" | "cancelled";
   isMine: boolean;
 }
+
+
+

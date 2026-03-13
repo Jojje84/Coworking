@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// Layout
+// ─────────────────────────────────────────
+
 import { Link, useNavigate, useLocation } from "react-router";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -196,3 +200,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
+
+

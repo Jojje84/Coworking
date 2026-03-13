@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// My Bookings
+// ─────────────────────────────────────────
+
 import { useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useData } from "../context/DataContext";
@@ -461,3 +465,6 @@ export function MyBookings() {
     </Layout>
   );
 }
+
+
+

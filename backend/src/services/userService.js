@@ -3,6 +3,10 @@ import { User } from "../models/User.js";
 import { AppError } from "../utils/AppError.js";
 import { isValidEmail, isNonEmptyString } from "../utils/validation.js";
 
+// ─────────────────────────────────────────
+// Create User
+// ─────────────────────────────────────────
+
 function normalizeRole(role) {
   return (role || "").toLowerCase() === "admin" ? "Admin" : "User";
 }

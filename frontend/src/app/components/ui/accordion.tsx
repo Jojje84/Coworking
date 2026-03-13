@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// Accordion
+// ─────────────────────────────────────────
+
 "use client";
 
 import * as React from "react";
@@ -64,3 +68,6 @@ function AccordionContent({
 }
 
 export { Accordion, AccordionItem, AccordionTrigger, AccordionContent };
+
+
+

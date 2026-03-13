@@ -6,6 +6,10 @@ import { AppError } from "../utils/AppError.js";
 import { isValidEmail, isNonEmptyString } from "../utils/validation.js";
 import { createUserService } from "../services/userService.js";
 
+// ─────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────
+
 function normalizeRole(role) {
   return (role || "").toLowerCase() === "admin" ? "Admin" : "User";
 }
@@ -42,6 +46,10 @@ async function countAdmins(excludeUserId = null) {
   return User.countDocuments(query);
 }
 
+// ─────────────────────────────────────────
+// Get All Users (Admin)
+// ─────────────────────────────────────────
+
 export async function getUsers(req, res, next) {
   try {
     const users = await User.find().select("-password").sort({ createdAt: -1 });
@@ -50,6 +58,10 @@ export async function getUsers(req, res, next) {
     next(err);
   }
 }
+
+// ─────────────────────────────────────────
+// Create User (Admin)
+// ─────────────────────────────────────────
 
 export async function createUser(req, res, next) {
   try {
@@ -73,6 +85,10 @@ export async function createUser(req, res, next) {
     next(err);
   }
 }
+
+// ─────────────────────────────────────────
+// Update User (Admin)
+// ─────────────────────────────────────────
 
 export async function updateUser(req, res, next) {
   try {
@@ -198,6 +214,10 @@ export async function updateUser(req, res, next) {
   }
 }
 
+// ─────────────────────────────────────────
+// Delete User (Admin)
+// ─────────────────────────────────────────
+
 export async function deleteUser(req, res, next) {
   try {
     const userId = req.params.id;
@@ -249,6 +269,10 @@ export async function deleteUser(req, res, next) {
   }
 }
 
+// ─────────────────────────────────────────
+// Get Own Profile
+// ─────────────────────────────────────────
+
 export async function getMe(req, res, next) {
   try {
     const user = await User.findById(req.user.id).select("-password");
@@ -262,6 +286,10 @@ export async function getMe(req, res, next) {
     next(err);
   }
 }
+
+// ─────────────────────────────────────────
+// Update Own Profile
+// ─────────────────────────────────────────
 
 export async function updateMe(req, res, next) {
   try {

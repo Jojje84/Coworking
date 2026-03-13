@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// Tooltip
+// ─────────────────────────────────────────
+
 "use client";
 
 import * as React from "react";
@@ -59,3 +63,6 @@ function TooltipContent({
 }
 
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider };
+
+
+

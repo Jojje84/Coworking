@@ -184,6 +184,7 @@ Login response:
 | GET | `/api/rooms` | - | Get all rooms |
 | POST | `/api/rooms` | Admin | Create a room |
 | PUT | `/api/rooms/:id` | Admin | Update a room |
+| PATCH | `/api/rooms/:id` | Admin | Update a room (partial) |
 | DELETE | `/api/rooms/:id` | Admin | Delete a room |
 
 Create room request body:

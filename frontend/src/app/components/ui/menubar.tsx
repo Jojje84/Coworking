@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// Menubar
+// ─────────────────────────────────────────
+
 "use client";
 
 import * as React from "react";
@@ -274,3 +278,6 @@ export {
   MenubarSubTrigger,
   MenubarSubContent,
 };
+
+
+

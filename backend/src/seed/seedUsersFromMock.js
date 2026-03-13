@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// Seed Users From Mock
+// ─────────────────────────────────────────
+
 import dotenv from "dotenv";
 import { connectDB } from "../config/db.js";
 import { User } from "../models/User.js";

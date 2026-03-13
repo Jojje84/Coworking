@@ -1,3 +1,7 @@
+// ─────────────────────────────────────────
+// Sparkle
+// ─────────────────────────────────────────
+
 import { motion } from "motion/react";
 import { useEffect } from "react";
 import { Sparkles } from "lucide-react";
@@ -71,3 +75,6 @@ export function Sparkle({ id, x, y, onComplete }: SparkleProps) {
     </motion.div>
   );
 }
+
+
+
