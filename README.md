@@ -337,13 +337,15 @@ Frontend may map roles internally to lowercase (`"user"`, `"admin"`).
 - Dashboard
   ![Dashboard](screenshots/dashboard.png)
 
+- Admin Dashboard
+  ![Admin Dashboard](screenshots/admin-dashboard.png)
+
 - Book Room page
   ![Book Room](screenshots/book-room.png)
 
 - Admin Bookings page
   ![Admin Bookings](screenshots/admin-bookings.png)
 
-Add your images to `screenshots/` or update these paths to your actual files.
 
 ---
 
