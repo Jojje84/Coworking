@@ -17,11 +17,13 @@ let integrationReady = true;
 let integrationSkipReason = "";
 
 async function registerAndLogin() {
-  const registerRes = await request(app).post("/api/auth/register").send({
-    username: `user_${Date.now()}`,
-    email: `user_${Date.now()}@example.com`,
-    password: "secret123",
-  });
+  const registerRes = await request(app)
+    .post("/api/auth/register")
+    .send({
+      username: `user_${Date.now()}`,
+      email: `user_${Date.now()}@example.com`,
+      password: "secret123",
+    });
 
   assert.equal(registerRes.status, 201);
 
@@ -37,11 +39,13 @@ async function registerAndLogin() {
 }
 
 async function registerUser(emailPrefix) {
-  const registerRes = await request(app).post("/api/auth/register").send({
-    username: `${emailPrefix}_${Date.now()}`,
-    email: `${emailPrefix}_${Date.now()}@example.com`,
-    password: "secret123",
-  });
+  const registerRes = await request(app)
+    .post("/api/auth/register")
+    .send({
+      username: `${emailPrefix}_${Date.now()}`,
+      email: `${emailPrefix}_${Date.now()}@example.com`,
+      password: "secret123",
+    });
 
   assert.equal(registerRes.status, 201);
   return registerRes.body;

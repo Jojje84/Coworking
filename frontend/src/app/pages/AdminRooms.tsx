@@ -578,6 +578,3 @@ export function AdminRooms() {
     </Layout>
   );
 }
-
-
-

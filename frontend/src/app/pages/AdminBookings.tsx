@@ -174,7 +174,6 @@ export function AdminBookings() {
             subtitle="Finished bookings"
             icon={<Clock3 className="h-6 w-6 text-gray-600" />}
           />
-
         </div>
 
         <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
@@ -452,6 +451,3 @@ export function AdminBookings() {
     </Layout>
   );
 }
-
-
-

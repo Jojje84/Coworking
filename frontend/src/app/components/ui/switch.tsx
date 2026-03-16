@@ -33,6 +33,3 @@ function Switch({
 }
 
 export { Switch };
-
-
-

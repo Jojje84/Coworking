@@ -75,6 +75,3 @@ export function Sparkle({ id, x, y, onComplete }: SparkleProps) {
     </motion.div>
   );
 }
-
-
-

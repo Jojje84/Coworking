@@ -805,6 +805,3 @@ export function BookRoom() {
     </Layout>
   );
 }
-
-
-

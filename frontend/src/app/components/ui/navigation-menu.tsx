@@ -170,6 +170,3 @@ export {
   NavigationMenuViewport,
   navigationMenuTriggerStyle,
 };
-
-
-

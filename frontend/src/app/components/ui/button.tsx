@@ -60,6 +60,3 @@ function Button({
 }
 
 export { Button, buttonVariants };
-
-
-

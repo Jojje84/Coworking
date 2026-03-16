@@ -243,6 +243,3 @@ export {
   CarouselPrevious,
   CarouselNext,
 };
-
-
-

@@ -465,6 +465,3 @@ export function MyBookings() {
     </Layout>
   );
 }
-
-
-

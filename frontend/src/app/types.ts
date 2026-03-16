@@ -42,6 +42,3 @@ export interface CalendarBooking {
   status: "active" | "completed" | "cancelled";
   isMine: boolean;
 }
-
-
-

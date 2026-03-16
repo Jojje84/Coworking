@@ -248,6 +248,3 @@ export function Register() {
     </div>
   );
 }
-
-
-
