@@ -68,9 +68,11 @@ export function createApp() {
 
   // ─── Rate Limiting ───
 
+  const authMaxRequests = process.env.NODE_ENV === "test" ? 1000 : 10;
+
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 10,
+    max: authMaxRequests,
     standardHeaders: true,
     legacyHeaders: false,
     message: {
