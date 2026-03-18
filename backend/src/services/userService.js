@@ -2,6 +2,10 @@ import bcrypt from "bcrypt";
 import { User } from "../models/User.js";
 import { AppError } from "../utils/AppError.js";
 import { isValidEmail, isNonEmptyString } from "../utils/validation.js";
+import {
+  buildPermissionsForRole,
+  toPermissionResponse,
+} from "../utils/permissions.js";
 
 // ─────────────────────────────────────────
 // Create User
@@ -16,6 +20,8 @@ export async function createUserService({
   email,
   password,
   role = "User",
+  bookingHardDelete = false,
+  permissions,
 }) {
   if (
     !isNonEmptyString(username) ||
@@ -52,11 +58,20 @@ export async function createUserService({
 
   const hash = await bcrypt.hash(password, 10);
 
+  const inputPermissions =
+    permissions && typeof permissions === "object"
+      ? permissions
+      : { bookingHardDelete };
+
   const user = await User.create({
     username,
     email,
     password: hash,
     role,
+    permissions: buildPermissionsForRole(
+      role,
+      toPermissionResponse(inputPermissions),
+    ),
   });
 
   return user;

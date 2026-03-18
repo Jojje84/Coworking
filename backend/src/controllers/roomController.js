@@ -2,6 +2,7 @@ import { Room } from "../models/Room.js";
 import { getRedis } from "../config/redis.js";
 import { AppError } from "../utils/AppError.js";
 import { isNonEmptyString, isValidObjectId } from "../utils/validation.js";
+import { safeRecordAuditLog } from "../services/auditLogService.js";
 
 // ─────────────────────────────────────────
 // Helpers
@@ -11,6 +12,39 @@ function emitRoomEvent(req, event, payload) {
   const io = req.app.get("io");
   if (!io || !payload) return;
   io.emit(event, payload);
+}
+
+function toRoomAuditSnapshot(room) {
+  if (!room) return null;
+
+  const source = typeof room.toObject === "function" ? room.toObject() : room;
+  const id = source.id || source._id;
+
+  return {
+    id: id ? id.toString() : null,
+    name: source.name || "",
+    capacity: Number(source.capacity || 0),
+    type: source.type || "workspace",
+    description: source.description || "",
+    imageUrl: source.imageUrl || "",
+  };
+}
+
+function getChangedAuditFields(previousSnapshot, nextSnapshot) {
+  if (!previousSnapshot || !nextSnapshot) return [];
+
+  const fields = Array.from(
+    new Set([
+      ...Object.keys(previousSnapshot),
+      ...Object.keys(nextSnapshot),
+    ]),
+  );
+
+  return fields.filter(
+    (field) =>
+      JSON.stringify(previousSnapshot[field]) !==
+      JSON.stringify(nextSnapshot[field]),
+  );
 }
 
 // ─────────────────────────────────────────
@@ -80,6 +114,17 @@ export async function createRoom(req, res, next) {
       await redis.del("rooms:all");
     }
 
+    await safeRecordAuditLog({
+      req,
+      action: "room.created",
+      targetType: "room",
+      targetId: room._id,
+      summary: `Room ${room.name} was created`,
+      metadata: {
+        next: toRoomAuditSnapshot(room),
+      },
+    });
+
     try {
       emitRoomEvent(req, "room:created", room);
     } catch (socketErr) {
@@ -140,18 +185,38 @@ export async function updateRoom(req, res, next) {
       patch.imageUrl = typeof imageUrl === "string" ? imageUrl.trim() : "";
     }
 
-    const room = await Room.findByIdAndUpdate(id, patch, {
-      new: true,
-      runValidators: true,
-    });
+    const room = await Room.findById(id);
 
     if (!room) {
       return next(new AppError("Room not found", 404));
     }
 
+    const previousSnapshot = toRoomAuditSnapshot(room);
+
+    Object.assign(room, patch);
+    await room.save();
+
+    const nextSnapshot = toRoomAuditSnapshot(room);
+    const changedFields = getChangedAuditFields(previousSnapshot, nextSnapshot);
+
     const redis = getRedis();
     if (redis) {
       await redis.del("rooms:all");
+    }
+
+    if (changedFields.length > 0) {
+      await safeRecordAuditLog({
+        req,
+        action: "room.updated",
+        targetType: "room",
+        targetId: room._id,
+        summary: `Room ${room.name} was updated`,
+        metadata: {
+          changedFields,
+          previous: previousSnapshot,
+          next: nextSnapshot,
+        },
+      });
     }
 
     try {
@@ -188,6 +253,17 @@ export async function deleteRoom(req, res, next) {
     if (redis) {
       await redis.del("rooms:all");
     }
+
+    await safeRecordAuditLog({
+      req,
+      action: "room.deleted",
+      targetType: "room",
+      targetId: room._id,
+      summary: `Room ${room.name} was deleted`,
+      metadata: {
+        previous: toRoomAuditSnapshot(room),
+      },
+    });
 
     try {
       emitRoomEvent(req, "room:deleted", { id: room._id.toString() });

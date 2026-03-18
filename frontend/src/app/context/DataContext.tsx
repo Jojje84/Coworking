@@ -12,7 +12,13 @@ import {
   ReactNode,
   useCallback,
 } from "react";
-import { Room, Booking, User, CalendarBooking } from "../types";
+import {
+  Room,
+  Booking,
+  User,
+  CalendarBooking,
+  UserPermissions,
+} from "../types";
 import { toast } from "sonner";
 import { useAuth } from "./AuthContext";
 import { io, Socket } from "socket.io-client";
@@ -23,6 +29,8 @@ interface DataContextType {
   calendarBookings: CalendarBooking[];
   users: User[];
   newBookingIds: string[];
+  adminAnnouncement: string;
+  userAnnouncement: string;
 
   loadCalendarBookings: (start: string, end: string) => Promise<void>;
 
@@ -36,12 +44,14 @@ interface DataContextType {
   updateBooking: (id: string, booking: Partial<Booking>) => Promise<boolean>;
   cancelBooking: (id: string) => Promise<boolean>;
   deleteBooking: (id: string) => Promise<boolean>;
+  hardDeleteBooking: (id: string, confirmText: string) => Promise<boolean>;
 
   addUser: (user: {
     username: string;
     email: string;
     password: string;
     role: "user" | "admin";
+    permissions?: UserPermissions;
   }) => Promise<boolean>;
   updateUser: (
     id: string,
@@ -50,9 +60,12 @@ interface DataContextType {
       email?: string;
       password?: string;
       role?: "user" | "admin";
+      permissions?: UserPermissions;
     },
   ) => Promise<boolean>;
   deleteUser: (id: string) => Promise<boolean>;
+  restoreUser: (id: string) => Promise<boolean>;
+  hardDeleteUser: (id: string, confirmText: string) => Promise<boolean>;
 
   isRoomAvailable: (
     roomId: string,
@@ -124,6 +137,16 @@ function mapUserFromApi(u: any): User {
     username: u.username ?? "",
     email: u.email ?? "",
     role: u.role?.toLowerCase() === "admin" ? "admin" : "user",
+    permissions: {
+      bookingHardDelete: Boolean(u.permissions?.bookingHardDelete),
+      userHardDelete: Boolean(u.permissions?.userHardDelete),
+      manageAdmins: Boolean(u.permissions?.manageAdmins),
+      manageSettings: Boolean(u.permissions?.manageSettings),
+      viewAuditLogs: Boolean(u.permissions?.viewAuditLogs),
+    },
+    isDeleted: Boolean(u.isDeleted),
+    deletedAt: u.deletedAt ? new Date(u.deletedAt).toISOString() : null,
+    deleteAfter: u.deleteAfter ? new Date(u.deleteAfter).toISOString() : null,
     createdAt: u.createdAt
       ? new Date(u.createdAt).toISOString()
       : new Date().toISOString(),
@@ -144,6 +167,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
   const [users, setUsers] = useState<User[]>([]);
   const [newBookingIds, setNewBookingIds] = useState<string[]>([]);
+  const [adminAnnouncement, setAdminAnnouncement] = useState("");
+  const [userAnnouncement, setUserAnnouncement] = useState("");
   const calendarRangeRef = useRef<{ start: string; end: string } | null>(null);
 
   const loadCalendarBookings = useCallback(
@@ -175,6 +200,42 @@ export function DataProvider({ children }: { children: ReactNode }) {
     },
     [token],
   );
+
+  // ─────────────────────────────────────────
+  // Load Settings Announcements
+  // ─────────────────────────────────────────
+
+  useEffect(() => {
+    if (!token || !user) {
+      setAdminAnnouncement("");
+      setUserAnnouncement("");
+      return;
+    }
+
+    async function loadAnnouncements() {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/settings`, {
+          headers: { ...authHeaders(token) },
+        });
+
+        if (!res.ok) {
+          setAdminAnnouncement("");
+          setUserAnnouncement("");
+          return;
+        }
+
+        const data = await res.json().catch(() => null);
+        setAdminAnnouncement(String(data?.adminAnnouncement || "").trim());
+        setUserAnnouncement(String(data?.userAnnouncement || "").trim());
+      } catch (err) {
+        console.error("loadAnnouncements error:", err);
+        setAdminAnnouncement("");
+        setUserAnnouncement("");
+      }
+    }
+
+    loadAnnouncements();
+  }, [token, user?.id, user?.role]);
 
   // ─────────────────────────────────────────
   // Load Rooms
@@ -260,7 +321,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
     async function loadUsers() {
       try {
-        const res = await fetch(`${API_BASE_URL}/api/users`, {
+        const res = await fetch(`${API_BASE_URL}/api/users?includeDeleted=true`, {
           headers: { ...authHeaders(token) },
         });
 
@@ -415,7 +476,42 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const deletedId = payload?.id ?? payload?._id;
       if (!deletedId) return;
 
+      const isSoftDelete = Boolean(payload?.soft);
+
+      if (isSoftDelete) {
+        setUsers((prev) =>
+          prev.map((u) =>
+            u.id === deletedId
+              ? {
+                  ...u,
+                  isDeleted: true,
+                  deletedAt: new Date().toISOString(),
+                  deleteAfter: payload?.deleteAfter
+                    ? new Date(payload.deleteAfter).toISOString()
+                    : u.deleteAfter ?? null,
+                }
+              : u,
+          ),
+        );
+        return;
+      }
+
       setUsers((prev) => prev.filter((u) => u.id !== deletedId));
+    });
+
+    socket.on("user:restored", (payload: any) => {
+      const mapped = mapUserFromApi(payload);
+
+      setUsers((prev) => {
+        const exists = prev.some((u) => u.id === mapped.id);
+        if (!exists) return [mapped, ...prev];
+        return prev.map((u) => (u.id === mapped.id ? mapped : u));
+      });
+    });
+
+    socket.on("settings:updated", (payload: any) => {
+      setAdminAnnouncement(String(payload?.adminAnnouncement || "").trim());
+      setUserAnnouncement(String(payload?.userAnnouncement || "").trim());
     });
 
     return () => {
@@ -697,18 +793,77 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (res.status === 403) {
         const data = await res.json().catch(() => null);
         toast.error(
-          data?.message || "Only the booking owner or an admin can delete it",
+          data?.message || "Only the booking owner or an admin can cancel it",
         );
+        return false;
+      }
+      if (res.status === 400) {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.message || "Booking cannot be cancelled");
         return false;
       }
       if (!res.ok) throw new Error(`Failed to delete booking: ${res.status}`);
 
-      setBookings((prev) => prev.filter((b) => b.id !== id));
-      toast.success("Booking has been deleted");
+      const saved = await res.json();
+      const mapped = mapBookingFromApi(saved);
+
+      setBookings((prev) => {
+        const exists = prev.some((b) => b.id === mapped.id);
+        if (!exists) return [mapped, ...prev];
+        return prev.map((b) => (b.id === mapped.id ? mapped : b));
+      });
+      toast.success("Booking has been cancelled");
       return true;
     } catch (err) {
       console.error("deleteBooking error:", err);
-      toast.error("Could not delete booking");
+      toast.error("Could not cancel booking");
+      return false;
+    }
+  };
+
+  const hardDeleteBooking = async (
+    id: string,
+    confirmText: string,
+  ): Promise<boolean> => {
+    if (!token) return false;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/bookings/${id}/hard`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders(token),
+        },
+        body: JSON.stringify({ confirmText }),
+      });
+
+      if (res.status === 403) {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.message || "Endast admin kan radera permanent");
+        return false;
+      }
+
+      if (res.status === 400) {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.message || "Booking can not be hard deleted");
+        return false;
+      }
+
+      if (res.status === 404) {
+        toast.error("Booking not found");
+        return false;
+      }
+
+      if (!res.ok) {
+        throw new Error(`Failed to hard delete booking: ${res.status}`);
+      }
+
+      setBookings((prev) => prev.filter((b) => b.id !== id));
+      toast.success("Booking permanently deleted");
+      return true;
+    } catch (err) {
+      console.error("hardDeleteBooking error:", err);
+      toast.error("Could not hard delete booking");
       return false;
     }
   };
@@ -722,6 +877,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     email: string;
     password: string;
     role: "user" | "admin";
+    permissions?: UserPermissions;
   }): Promise<boolean> => {
     if (!token) return false;
     try {
@@ -736,6 +892,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
           email: newUser.email.trim().toLowerCase(),
           password: newUser.password,
           role: newUser.role === "admin" ? "Admin" : "User",
+          permissions:
+            newUser.role === "admin"
+              ? {
+                  bookingHardDelete: Boolean(
+                    newUser.permissions?.bookingHardDelete,
+                  ),
+                  userHardDelete: Boolean(newUser.permissions?.userHardDelete),
+                  manageAdmins: Boolean(newUser.permissions?.manageAdmins),
+                  manageSettings: Boolean(newUser.permissions?.manageSettings),
+                  viewAuditLogs: Boolean(newUser.permissions?.viewAuditLogs),
+                }
+              : undefined,
         }),
       });
 
@@ -785,12 +953,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       email?: string;
       password?: string;
       role?: "user" | "admin";
+      permissions?: UserPermissions;
     },
   ): Promise<boolean> => {
     if (!token) return false;
 
     try {
-      const body: Record<string, string> = {};
+      const body: Record<string, unknown> = {};
 
       if (updatedUser.username !== undefined) {
         body.username = updatedUser.username.trim();
@@ -806,6 +975,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       if (updatedUser.role !== undefined) {
         body.role = updatedUser.role === "admin" ? "Admin" : "User";
+      }
+
+      if (updatedUser.permissions !== undefined) {
+        body.permissions = {
+          bookingHardDelete: Boolean(updatedUser.permissions.bookingHardDelete),
+          userHardDelete: Boolean(updatedUser.permissions.userHardDelete),
+          manageAdmins: Boolean(updatedUser.permissions.manageAdmins),
+          manageSettings: Boolean(updatedUser.permissions.manageSettings),
+          viewAuditLogs: Boolean(updatedUser.permissions.viewAuditLogs),
+        };
       }
 
       const res = await fetch(`${API_BASE_URL}/api/users/${id}`, {
@@ -879,12 +1058,119 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       if (!res.ok) throw new Error(`Failed to delete user: ${res.status}`);
 
-      setUsers((prev) => prev.filter((u) => u.id !== id));
-      toast.success("User has been deleted");
+      const data = await res.json().catch(() => null);
+
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === id
+            ? {
+                ...u,
+                isDeleted: true,
+                deletedAt: new Date().toISOString(),
+                deleteAfter: data?.deleteAfter
+                  ? new Date(data.deleteAfter).toISOString()
+                  : u.deleteAfter ?? null,
+              }
+            : u,
+        ),
+      );
+
+      toast.success("User soft deleted");
       return true;
     } catch (err) {
       console.error("deleteUser error:", err);
       toast.error("Could not delete user");
+      return false;
+    }
+  };
+
+  const restoreUser = async (id: string): Promise<boolean> => {
+    if (!token) return false;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/users/${id}/restore`, {
+        method: "POST",
+        headers: { ...authHeaders(token) },
+      });
+
+      if (res.status === 404) {
+        toast.error("User not found");
+        return false;
+      }
+
+      if (res.status === 410) {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.message || "Grace period has expired");
+        return false;
+      }
+
+      if (res.status === 403) {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.message || "Endast admin kan återställa användare");
+        return false;
+      }
+
+      if (!res.ok) throw new Error(`Failed to restore user: ${res.status}`);
+
+      const restored = await res.json();
+      const mapped = mapUserFromApi(restored);
+
+      setUsers((prev) => {
+        const exists = prev.some((u) => u.id === mapped.id);
+        if (!exists) return [mapped, ...prev];
+        return prev.map((u) => (u.id === mapped.id ? mapped : u));
+      });
+
+      toast.success(`User "${mapped.username}" has been restored`);
+      return true;
+    } catch (err) {
+      console.error("restoreUser error:", err);
+      toast.error("Could not restore user");
+      return false;
+    }
+  };
+
+  const hardDeleteUser = async (
+    id: string,
+    confirmText: string,
+  ): Promise<boolean> => {
+    if (!token) return false;
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/users/${id}/hard`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          ...authHeaders(token),
+        },
+        body: JSON.stringify({ confirmText }),
+      });
+
+      if (res.status === 403) {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.message || "userHardDelete permission required");
+        return false;
+      }
+
+      if (res.status === 400) {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.message || "Could not permanently delete user");
+        return false;
+      }
+
+      if (res.status === 404) {
+        toast.error("User not found");
+        return false;
+      }
+
+      if (!res.ok) throw new Error(`Failed to hard delete user: ${res.status}`);
+
+      setUsers((prev) => prev.filter((u) => u.id !== id));
+      toast.success("User permanently deleted");
+      return true;
+    } catch (err) {
+      console.error("hardDeleteUser error:", err);
+      toast.error("Could not permanently delete user");
       return false;
     }
   };
@@ -924,6 +1210,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
       calendarBookings,
       users,
       newBookingIds,
+      adminAnnouncement,
+      userAnnouncement,
       loadCalendarBookings,
       addRoom,
       updateRoom,
@@ -932,9 +1220,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateBooking,
       cancelBooking,
       deleteBooking,
+      hardDeleteBooking,
       addUser,
       updateUser,
       deleteUser,
+      restoreUser,
+      hardDeleteUser,
       isRoomAvailable,
     }),
     [
@@ -943,8 +1234,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
       calendarBookings,
       users,
       newBookingIds,
+      adminAnnouncement,
+      userAnnouncement,
       loadCalendarBookings,
       isRoomAvailable,
+      hardDeleteBooking,
+      restoreUser,
+      hardDeleteUser,
     ],
   );
 

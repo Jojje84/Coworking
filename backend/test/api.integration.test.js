@@ -209,7 +209,8 @@ test("booking owner can update and delete own booking", async (t) => {
     .set("Authorization", `Bearer ${token}`);
 
   assert.equal(deleteRes.status, 200);
-  assert.equal(deleteRes.body.ok, true);
+  assert.equal(deleteRes.body._id, bookingId);
+  assert.equal(deleteRes.body.status, "cancelled");
 });
 
 test("non-owner cannot delete another users booking", async (t) => {
@@ -253,6 +254,68 @@ test("non-owner cannot delete another users booking", async (t) => {
   assert.equal(forbiddenDelete.status, 403);
 });
 
+test("admin can hard delete cancelled booking", async (t) => {
+  if (!integrationReady) {
+    t.skip(integrationSkipReason);
+    return;
+  }
+
+  const admin = await registerUser("hard_admin");
+  await User.findOneAndUpdate(
+    { email: admin.email },
+    {
+      role: "Admin",
+      permissions: { bookingHardDelete: true },
+    },
+  );
+  const adminToken = await loginWithEmail(admin.email);
+
+  const owner = await registerUser("hard_owner");
+  const ownerToken = await loginWithEmail(owner.email);
+
+  const room = await Room.create({
+    name: "Hard Delete Room",
+    capacity: 6,
+    type: "workspace",
+    description: "",
+    imageUrl: "",
+  });
+
+  const start = new Date(Date.now() + 60 * 60 * 1000);
+  const end = new Date(Date.now() + 2 * 60 * 60 * 1000);
+
+  const createRes = await request(app)
+    .post("/api/bookings")
+    .set("Authorization", `Bearer ${ownerToken}`)
+    .send({
+      roomId: room._id.toString(),
+      startTime: start.toISOString(),
+      endTime: end.toISOString(),
+    });
+
+  assert.equal(createRes.status, 201);
+
+  const cancelRes = await request(app)
+    .delete(`/api/bookings/${createRes.body._id}`)
+    .set("Authorization", `Bearer ${ownerToken}`);
+  assert.equal(cancelRes.status, 200);
+  assert.equal(cancelRes.body.status, "cancelled");
+
+  const hardDeleteRes = await request(app)
+    .delete(`/api/bookings/${createRes.body._id}/hard`)
+    .set("Authorization", `Bearer ${adminToken}`)
+    .send({ confirmText: "DELETE" });
+
+  assert.equal(hardDeleteRes.status, 200);
+  assert.equal(hardDeleteRes.body.ok, true);
+
+  const deletedBooking = await mongoose.connection
+    .collection("bookings")
+    .findOne({ _id: new mongoose.Types.ObjectId(createRes.body._id) });
+
+  assert.equal(deletedBooking, null);
+});
+
 test("admin can list users while normal user gets 403", async (t) => {
   if (!integrationReady) {
     t.skip(integrationSkipReason);
@@ -277,4 +340,86 @@ test("admin can list users while normal user gets 403", async (t) => {
   assert.equal(adminUsersRes.status, 200);
   assert.ok(Array.isArray(adminUsersRes.body));
   assert.ok(adminUsersRes.body.length >= 2);
+});
+
+test("admin soft delete cancels future bookings and supports restore", async (t) => {
+  if (!integrationReady) {
+    t.skip(integrationSkipReason);
+    return;
+  }
+
+  const admin = await registerUser("soft_admin");
+  await User.findOneAndUpdate({ email: admin.email }, { role: "Admin" });
+  const adminToken = await loginWithEmail(admin.email);
+
+  const victim = await registerUser("soft_victim");
+  const victimToken = await loginWithEmail(victim.email);
+
+  const room = await Room.create({
+    name: "Soft Delete Room",
+    capacity: 4,
+    type: "workspace",
+    description: "",
+    imageUrl: "",
+  });
+
+  const start = new Date(Date.now() + 2 * 60 * 60 * 1000);
+  const end = new Date(Date.now() + 3 * 60 * 60 * 1000);
+
+  const bookingRes = await request(app)
+    .post("/api/bookings")
+    .set("Authorization", `Bearer ${victimToken}`)
+    .send({
+      roomId: room._id.toString(),
+      startTime: start.toISOString(),
+      endTime: end.toISOString(),
+    });
+
+  assert.equal(bookingRes.status, 201);
+  assert.equal(bookingRes.body.status, "active");
+
+  const deleteRes = await request(app)
+    .delete(`/api/users/${victim.id}`)
+    .set("Authorization", `Bearer ${adminToken}`);
+
+  assert.equal(deleteRes.status, 200);
+  assert.ok(deleteRes.body.deleteAfter);
+
+  const cancelledBooking = await mongoose.connection
+    .collection("bookings")
+    .findOne({ _id: new mongoose.Types.ObjectId(bookingRes.body._id) });
+
+  assert.equal(cancelledBooking.status, "cancelled");
+
+  const meAfterDelete = await request(app)
+    .get("/api/users/me")
+    .set("Authorization", `Bearer ${victimToken}`);
+  assert.equal(meAfterDelete.status, 401);
+
+  const loginAfterDelete = await request(app).post("/api/auth/login").send({
+    email: victim.email,
+    password: "secret123",
+  });
+  assert.equal(loginAfterDelete.status, 401);
+
+  const adminUsersAfterDelete = await request(app)
+    .get("/api/users")
+    .set("Authorization", `Bearer ${adminToken}`);
+  assert.equal(adminUsersAfterDelete.status, 200);
+  assert.equal(
+    adminUsersAfterDelete.body.some((u) => u._id === victim.id || u.id === victim.id),
+    false,
+  );
+
+  const restoreRes = await request(app)
+    .post(`/api/users/${victim.id}/restore`)
+    .set("Authorization", `Bearer ${adminToken}`);
+  assert.equal(restoreRes.status, 200);
+
+  const loginAfterRestore = await request(app).post("/api/auth/login").send({
+    email: victim.email,
+    password: "secret123",
+  });
+  assert.equal(loginAfterRestore.status, 200);
+  assert.ok(loginAfterRestore.body.token);
 });

@@ -14,6 +14,13 @@ const MOCK_USERS = [
     username: "Anna Andersson",
     email: "admin@cowork.se",
     role: "Admin",
+    permissions: {
+      bookingHardDelete: true,
+      userHardDelete: true,
+      manageAdmins: true,
+      manageSettings: true,
+      viewAuditLogs: true,
+    },
     createdAt: "2024-01-01T10:00:00Z",
   },
   {
@@ -45,6 +52,14 @@ async function seed() {
     username: u.username,
     email: u.email,
     role: u.role,
+    permissions:
+      u.permissions || {
+        bookingHardDelete: false,
+        userHardDelete: false,
+        manageAdmins: false,
+        manageSettings: false,
+        viewAuditLogs: false,
+      },
     password: hash,
   }));
 

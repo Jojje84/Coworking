@@ -32,6 +32,8 @@ const options = {
       { name: "Rooms", description: "Room management" },
       { name: "Bookings", description: "Booking management" },
       { name: "Users", description: "User profile and admin user management" },
+      { name: "Settings", description: "Admin system settings" },
+      { name: "Audit Logs", description: "System audit event history" },
     ],
     components: {
       securitySchemes: {
@@ -62,6 +64,16 @@ const options = {
             username: { type: "string", example: "maria" },
             email: { type: "string", example: "maria@example.com" },
             role: { type: "string", enum: ["User", "Admin"], example: "User" },
+            permissions: {
+              type: "object",
+              properties: {
+                bookingHardDelete: { type: "boolean", example: false },
+                userHardDelete: { type: "boolean", example: false },
+                manageAdmins: { type: "boolean", example: false },
+                manageSettings: { type: "boolean", example: false },
+                viewAuditLogs: { type: "boolean", example: false },
+              },
+            },
           },
         },
         LoginResponse: {
@@ -181,6 +193,11 @@ const options = {
               enum: ["active", "cancelled", "completed"],
               example: "active",
             },
+            cancelledAt: {
+              type: "string",
+              format: "date-time",
+              nullable: true,
+            },
             createdAt: { type: "string", format: "date-time" },
             updatedAt: { type: "string", format: "date-time" },
           },
@@ -265,6 +282,23 @@ const options = {
             username: { type: "string", example: "maria" },
             email: { type: "string", example: "maria@example.com" },
             role: { type: "string", enum: ["User", "Admin"], example: "User" },
+            permissions: {
+              type: "object",
+              properties: {
+                bookingHardDelete: { type: "boolean", example: false },
+                userHardDelete: { type: "boolean", example: false },
+                manageAdmins: { type: "boolean", example: false },
+                manageSettings: { type: "boolean", example: false },
+                viewAuditLogs: { type: "boolean", example: false },
+              },
+            },
+            isDeleted: { type: "boolean", example: false },
+            deletedAt: { type: "string", format: "date-time", nullable: true },
+            deleteAfter: {
+              type: "string",
+              format: "date-time",
+              nullable: true,
+            },
             createdAt: { type: "string", format: "date-time" },
             updatedAt: { type: "string", format: "date-time" },
           },
@@ -277,6 +311,11 @@ const options = {
             email: { type: "string", example: "maria@example.com" },
             password: { type: "string", example: "secret123" },
             role: { type: "string", enum: ["User", "Admin"], example: "User" },
+            bookingHardDelete: { type: "boolean", example: false },
+            userHardDelete: { type: "boolean", example: false },
+            manageAdmins: { type: "boolean", example: false },
+            manageSettings: { type: "boolean", example: false },
+            viewAuditLogs: { type: "boolean", example: false },
           },
         },
         UserUpdateInput: {
@@ -286,6 +325,11 @@ const options = {
             email: { type: "string", example: "maria@example.com" },
             password: { type: "string", example: "newsecret123" },
             role: { type: "string", enum: ["User", "Admin"], example: "Admin" },
+            bookingHardDelete: { type: "boolean", example: true },
+            userHardDelete: { type: "boolean", example: false },
+            manageAdmins: { type: "boolean", example: true },
+            manageSettings: { type: "boolean", example: true },
+            viewAuditLogs: { type: "boolean", example: true },
           },
         },
         UpdateMeInput: {
@@ -308,8 +352,89 @@ const options = {
           properties: {
             message: {
               type: "string",
-              example: "User and related bookings deleted",
+              example:
+                "User soft deleted. Future active bookings were cancelled and can be reviewed during grace period.",
             },
+            deleteAfter: {
+              type: "string",
+              format: "date-time",
+              example: "2026-03-24T10:00:00.000Z",
+            },
+          },
+        },
+        AppSettings: {
+          type: "object",
+          properties: {
+            id: { type: "string", example: "67cabc1234567890abcdef12" },
+            allowSelfRegistration: { type: "boolean", example: true },
+            maintenanceMode: { type: "boolean", example: false },
+            adminAnnouncement: {
+              type: "string",
+              example: "System maintenance tonight 22:00",
+            },
+            userAnnouncement: {
+              type: "string",
+              example: "Welcome! Check new available rooms this week.",
+            },
+            updatedBy: {
+              type: "string",
+              nullable: true,
+              example: "67cabc1234567890abcdef12",
+            },
+            createdAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
+          },
+        },
+        AppSettingsUpdateInput: {
+          type: "object",
+          properties: {
+            allowSelfRegistration: { type: "boolean", example: false },
+            maintenanceMode: { type: "boolean", example: true },
+            adminAnnouncement: {
+              type: "string",
+              example: "Maintenance in progress",
+            },
+            userAnnouncement: {
+              type: "string",
+              example: "New booking policy is now active",
+            },
+          },
+        },
+        AuditLogItem: {
+          type: "object",
+          properties: {
+            id: { type: "string", example: "67cabc1234567890abcdef12" },
+            action: { type: "string", example: "user.updated" },
+            targetType: { type: "string", example: "user" },
+            targetId: { type: "string", example: "67cabc1234567890abcdef55" },
+            summary: { type: "string", example: "User maria was updated" },
+            metadata: { type: "object" },
+            actor: {
+              type: "object",
+              properties: {
+                id: { type: "string", nullable: true },
+                username: { type: "string", example: "anna" },
+                email: { type: "string", example: "admin@cowork.se" },
+                role: { type: "string", example: "Admin" },
+              },
+            },
+            actorRole: { type: "string", example: "Admin" },
+            ipAddress: { type: "string", example: "::1" },
+            userAgent: { type: "string", example: "Mozilla/5.0" },
+            createdAt: { type: "string", format: "date-time" },
+          },
+        },
+        AuditLogPage: {
+          type: "object",
+          properties: {
+            items: {
+              type: "array",
+              items: { $ref: "#/components/schemas/AuditLogItem" },
+            },
+            page: { type: "integer", example: 1 },
+            limit: { type: "integer", example: 20 },
+            total: { type: "integer", example: 42 },
+            totalPages: { type: "integer", example: 3 },
           },
         },
       },

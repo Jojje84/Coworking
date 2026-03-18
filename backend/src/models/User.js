@@ -32,6 +32,42 @@ const userSchema = new mongoose.Schema(
       enum: ["User", "Admin"],
       default: "User",
     },
+    permissions: {
+      bookingHardDelete: {
+        type: Boolean,
+        default: false,
+      },
+      userHardDelete: {
+        type: Boolean,
+        default: false,
+      },
+      manageAdmins: {
+        type: Boolean,
+        default: false,
+      },
+      manageSettings: {
+        type: Boolean,
+        default: false,
+      },
+      viewAuditLogs: {
+        type: Boolean,
+        default: false,
+      },
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    deleteAfter: {
+      type: Date,
+      default: null,
+      index: true,
+    },
   },
   { timestamps: true },
 );

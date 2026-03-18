@@ -9,9 +9,12 @@ import {
   createBooking,
   updateBooking,
   deleteBooking,
+  hardDeleteBooking,
   checkAvailability,
 } from "../controllers/bookingController.js";
 import { requireAuth } from "../middleware/auth.js";
+import { requireAdmin } from "../middleware/admin.js";
+import { requirePermission } from "../middleware/permissions.js";
 
 const router = express.Router();
 
@@ -258,7 +261,8 @@ router.put("/:id", requireAuth, updateBooking);
  * @swagger
  * /api/bookings/{id}:
  *   delete:
- *     summary: Permanently delete a booking (owner or admin)
+ *     summary: Cancel a booking (owner or admin)
+ *     description: Sets booking status to cancelled instead of permanently deleting the record.
  *     tags: [Bookings]
  *     security:
  *       - bearerAuth: []
@@ -271,13 +275,13 @@ router.put("/:id", requireAuth, updateBooking);
  *         description: Booking ID
  *     responses:
  *       200:
- *         description: Booking deleted
+ *         description: Booking cancelled
  *         content:
  *           application/json:
  *             schema:
- *               $ref: '#/components/schemas/DeleteResult'
+ *               $ref: '#/components/schemas/Booking'
  *       400:
- *         description: Invalid booking id
+ *         description: Invalid booking id or booking cannot be cancelled
  *         content:
  *           application/json:
  *             schema:
@@ -302,5 +306,72 @@ router.put("/:id", requireAuth, updateBooking);
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.delete("/:id", requireAuth, deleteBooking);
+
+/**
+ * @swagger
+ * /api/bookings/{id}/hard:
+ *   delete:
+ *     summary: Permanently delete a booking (admin only)
+ *     description: Hard deletes a cancelled/completed booking. Requires confirmText=DELETE in request body.
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Booking ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [confirmText]
+ *             properties:
+ *               confirmText:
+ *                 type: string
+ *                 example: DELETE
+ *     responses:
+ *       200:
+ *         description: Booking permanently deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/DeleteResult'
+ *       400:
+ *         description: Invalid id, missing confirmation, or active booking
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       403:
+ *         description: Admin access required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: Booking not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.delete(
+  "/:id/hard",
+  requireAuth,
+  requireAdmin,
+  requirePermission("bookingHardDelete"),
+  hardDeleteBooking,
+);
 
 export default router;

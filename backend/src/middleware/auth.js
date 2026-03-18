@@ -1,12 +1,13 @@
 import jwt from "jsonwebtoken";
 import { AppError } from "../utils/AppError.js";
 import { getJwtSecret } from "../config/env.js";
+import { User } from "../models/User.js";
 
 // ─────────────────────────────────────────
 // Authentication Middleware
 // ─────────────────────────────────────────
 
-export function requireAuth(req, res, next) {
+export async function requireAuth(req, res, next) {
   const header = req.headers.authorization || "";
   const [scheme, token] = header.split(" ");
 
@@ -17,9 +18,14 @@ export function requireAuth(req, res, next) {
   try {
     const payload = jwt.verify(token, getJwtSecret());
 
+    const currentUser = await User.findById(payload.id).select("role isDeleted");
+    if (!currentUser || currentUser.isDeleted) {
+      return next(new AppError("User is inactive or deleted", 401));
+    }
+
     req.user = {
       id: payload.id,
-      role: payload.role,
+      role: currentUser.role,
     };
 
     return next();

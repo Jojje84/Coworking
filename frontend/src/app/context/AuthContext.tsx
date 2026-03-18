@@ -48,6 +48,13 @@ function mapApiUser(apiUser: any): User {
     username: apiUser.username ?? "",
     email: apiUser.email ?? "",
     role: apiUser.role?.toLowerCase() === "admin" ? "admin" : "user",
+    permissions: {
+      bookingHardDelete: Boolean(apiUser.permissions?.bookingHardDelete),
+      userHardDelete: Boolean(apiUser.permissions?.userHardDelete),
+      manageAdmins: Boolean(apiUser.permissions?.manageAdmins),
+      manageSettings: Boolean(apiUser.permissions?.manageSettings),
+      viewAuditLogs: Boolean(apiUser.permissions?.viewAuditLogs),
+    },
     createdAt: apiUser.createdAt ?? new Date().toISOString(),
   };
 }

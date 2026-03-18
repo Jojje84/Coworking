@@ -7,6 +7,9 @@ import roomRoutes from "./routes/roomRoutes.js";
 import bookingRoutes from "./routes/bookingRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import settingsRoutes from "./routes/settingsRoutes.js";
+import auditLogRoutes from "./routes/auditLogRoutes.js";
+import { auditWriteRequests } from "./middleware/auditTrail.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import swaggerSpec from "./config/swagger.js";
 
@@ -60,6 +63,7 @@ export function createApp() {
   );
 
   app.use(express.json());
+  app.use(auditWriteRequests);
 
   app.use((req, _res, next) => {
     console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
@@ -95,6 +99,8 @@ export function createApp() {
   app.use("/api/rooms", roomRoutes);
   app.use("/api/bookings", bookingRoutes);
   app.use("/api/users", userRoutes);
+  app.use("/api/settings", settingsRoutes);
+  app.use("/api/audit-logs", auditLogRoutes);
 
   app.use((req, res) => {
     res.status(404).json({

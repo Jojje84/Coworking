@@ -4,11 +4,23 @@
 
 export type UserRole = "user" | "admin";
 
+export interface UserPermissions {
+  bookingHardDelete?: boolean;
+  userHardDelete?: boolean;
+  manageAdmins?: boolean;
+  manageSettings?: boolean;
+  viewAuditLogs?: boolean;
+}
+
 export interface User {
   id: string;
   username: string;
   email: string;
   role: UserRole;
+  permissions?: UserPermissions;
+  isDeleted?: boolean;
+  deletedAt?: string | null;
+  deleteAfter?: string | null;
   createdAt: string;
 }
 
@@ -41,4 +53,36 @@ export interface CalendarBooking {
   endTime: string;
   status: "active" | "completed" | "cancelled";
   isMine: boolean;
+}
+
+export interface AppSettings {
+  id: string;
+  allowSelfRegistration: boolean;
+  maintenanceMode: boolean;
+  adminAnnouncement: string;
+  userAnnouncement: string;
+  updatedBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AuditLogActor {
+  id: string | null;
+  username: string;
+  email: string;
+  role: string;
+}
+
+export interface AuditLogItem {
+  id: string;
+  action: string;
+  targetType: string;
+  targetId: string | null;
+  summary: string;
+  metadata: Record<string, unknown>;
+  actor: AuditLogActor;
+  actorRole: string;
+  ipAddress: string;
+  userAgent: string;
+  createdAt: string;
 }

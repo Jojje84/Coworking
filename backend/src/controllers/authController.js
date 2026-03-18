@@ -5,6 +5,9 @@ import { AppError } from "../utils/AppError.js";
 import { isValidEmail, isNonEmptyString } from "../utils/validation.js";
 import { createUserService } from "../services/userService.js";
 import { getJwtSecret } from "../config/env.js";
+import { toPermissionResponse } from "../utils/permissions.js";
+import { getOrCreateAppSettings } from "../services/settingsService.js";
+import { safeRecordAuditLog } from "../services/auditLogService.js";
 
 // ─────────────────────────────────────────
 // Helpers
@@ -24,6 +27,7 @@ function toUserResponse(user) {
     username: user.username,
     email: user.email,
     role: user.role,
+    permissions: toPermissionResponse(user.permissions),
     createdAt: user.createdAt,
     updatedAt: user.updatedAt,
   };
@@ -46,6 +50,14 @@ function emitUserCreated(req, payload) {
 
 export async function register(req, res, next) {
   try {
+    const settings = await getOrCreateAppSettings();
+
+    if (!settings.allowSelfRegistration) {
+      return next(
+        new AppError("Self registration is currently disabled", 403),
+      );
+    }
+
     const user = await createUserService({
       username: req.body.username,
       email: req.body.email,
@@ -54,6 +66,19 @@ export async function register(req, res, next) {
     });
 
     const payload = toUserResponse(user);
+
+    await safeRecordAuditLog({
+      req,
+      action: "auth.register",
+      actorId: user._id,
+      actorRole: user.role,
+      targetType: "user",
+      targetId: payload.id,
+      summary: `User ${payload.username} registered`,
+      metadata: {
+        role: payload.role,
+      },
+    });
 
     try {
       emitUserCreated(req, payload);
@@ -76,6 +101,16 @@ export async function login(req, res, next) {
     let { email, password } = req.body;
 
     if (!isNonEmptyString(email) || !isNonEmptyString(password)) {
+      await safeRecordAuditLog({
+        req,
+        action: "auth.login_failed",
+        targetType: "auth",
+        summary: "Login failed: missing credentials",
+        metadata: {
+          reason: "missing_credentials",
+          email: typeof email === "string" ? email.trim().toLowerCase() : "",
+        },
+      });
       return next(new AppError("email and password are required", 400));
     }
 
@@ -83,22 +118,73 @@ export async function login(req, res, next) {
     password = password.trim();
 
     if (!isValidEmail(email)) {
+      await safeRecordAuditLog({
+        req,
+        action: "auth.login_failed",
+        targetType: "auth",
+        summary: "Login failed: invalid email format",
+        metadata: {
+          reason: "invalid_email_format",
+          email,
+        },
+      });
       return next(new AppError("Invalid email format", 400));
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({
+      email,
+      isDeleted: { $ne: true },
+    });
 
     if (!user) {
+      await safeRecordAuditLog({
+        req,
+        action: "auth.login_failed",
+        targetType: "auth",
+        summary: "Login failed: invalid credentials",
+        metadata: {
+          reason: "invalid_credentials",
+          email,
+        },
+      });
       return next(new AppError("Invalid credentials", 401));
     }
 
     const passwordMatch = await bcrypt.compare(password, user.password);
 
     if (!passwordMatch) {
+      await safeRecordAuditLog({
+        req,
+        action: "auth.login_failed",
+        actorId: user._id,
+        actorRole: user.role,
+        targetType: "auth",
+        summary: "Login failed: invalid credentials",
+        metadata: {
+          reason: "invalid_credentials",
+          email,
+          userId: user._id.toString(),
+        },
+      });
       return next(new AppError("Invalid credentials", 401));
     }
 
     const token = signToken(user);
+
+    await safeRecordAuditLog({
+      req,
+      action: "auth.login_succeeded",
+      actorId: user._id,
+      actorRole: user.role,
+      targetType: "auth",
+      targetId: user._id,
+      summary: `User ${user.username} logged in`,
+      metadata: {
+        userId: user._id.toString(),
+        email: user.email,
+        role: user.role,
+      },
+    });
 
     return res.json({
       token,
@@ -107,6 +193,7 @@ export async function login(req, res, next) {
         username: user.username,
         email: user.email,
         role: user.role,
+        permissions: toPermissionResponse(user.permissions),
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },

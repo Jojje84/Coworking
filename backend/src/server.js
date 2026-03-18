@@ -4,7 +4,14 @@ import { Server as SocketIOServer } from "socket.io";
 import jwt from "jsonwebtoken";
 import { connectDB } from "./config/db.js";
 import { createApp, resolveCorsOrigin } from "./app.js";
-import { getJwtSecret, validateStartupEnv } from "./config/env.js";
+import {
+  getJwtSecret,
+  getUserPurgeIntervalMinutes,
+  validateStartupEnv,
+} from "./config/env.js";
+import { User } from "./models/User.js";
+import { purgeSoftDeletedUsers } from "./controllers/userController.js";
+import { purgeExpiredBookings } from "./controllers/bookingController.js";
 
 dotenv.config();
 
@@ -30,11 +37,39 @@ async function start() {
 
   app.set("io", io);
 
+  const purgeIntervalMinutes = getUserPurgeIntervalMinutes();
+  const purgeIntervalMs = purgeIntervalMinutes * 60 * 1000;
+
+  const purgeTimer = setInterval(async () => {
+    try {
+      const [userResult, bookingResult] = await Promise.all([
+        purgeSoftDeletedUsers(),
+        purgeExpiredBookings(),
+      ]);
+
+      if (userResult.purgedUsers > 0) {
+        console.log(
+          `🧹 Purged ${userResult.purgedUsers} expired soft-deleted users`,
+        );
+      }
+
+      if (bookingResult.purgedBookings > 0) {
+        console.log(
+          `🧹 Purged ${bookingResult.purgedBookings} expired cancelled/completed bookings`,
+        );
+      }
+    } catch (err) {
+      console.error("soft-delete purge error:", err);
+    }
+  }, purgeIntervalMs);
+
+  purgeTimer.unref();
+
   // ─────────────────────────────────────────
   // Socket.IO Authentication
   // ─────────────────────────────────────────
 
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     try {
       const token = socket.handshake.auth?.token;
 
@@ -43,10 +78,17 @@ async function start() {
       }
 
       const payload = jwt.verify(token, getJwtSecret());
+      const currentUser = await User.findById(payload.id).select(
+        "role isDeleted",
+      );
+
+      if (!currentUser || currentUser.isDeleted) {
+        return next(new Error("Authentication error"));
+      }
 
       socket.user = {
-        id: payload.id,
-        role: payload.role,
+        id: currentUser._id.toString(),
+        role: currentUser.role,
       };
 
       return next();
@@ -95,6 +137,9 @@ async function start() {
   server.listen(PORT, () => {
     console.log("✅ API running on port " + PORT);
     console.log(`📘 Swagger docs: http://localhost:${PORT}/api/docs`);
+    console.log(
+      `🧹 Soft-delete purge job interval: ${purgeIntervalMinutes} minute(s)`,
+    );
   });
 }
 

@@ -12,6 +12,8 @@ import { BookRoom } from "./pages/BookRoom";
 import { AdminRooms } from "./pages/AdminRooms";
 import { AdminUsers } from "./pages/AdminUsers";
 import { AdminBookings } from "./pages/AdminBookings";
+import { AdminSettings } from "./pages/AdminSettings";
+import { AdminAuditLogs } from "./pages/AdminAuditLogs";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -32,6 +34,30 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 
   if (user.role !== "admin") {
     return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+}
+
+function AdminPermissionRoute({
+  permission,
+  children,
+}: {
+  permission: "manageSettings" | "viewAuditLogs";
+  children: React.ReactNode;
+}) {
+  const { user } = useAuth();
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user.role !== "admin") {
+    return <Navigate to="/" replace />;
+  }
+
+  if (!user.permissions?.[permission]) {
+    return <Navigate to="/admin/bookings" replace />;
   }
 
   return <>{children}</>;
@@ -92,6 +118,22 @@ export const router = createBrowserRouter([
       <AdminRoute>
         <AdminBookings />
       </AdminRoute>
+    ),
+  },
+  {
+    path: "/admin/settings",
+    element: (
+      <AdminPermissionRoute permission="manageSettings">
+        <AdminSettings />
+      </AdminPermissionRoute>
+    ),
+  },
+  {
+    path: "/admin/audit-logs",
+    element: (
+      <AdminPermissionRoute permission="viewAuditLogs">
+        <AdminAuditLogs />
+      </AdminPermissionRoute>
     ),
   },
   {

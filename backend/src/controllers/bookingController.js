@@ -2,6 +2,8 @@ import { Booking } from "../models/Booking.js";
 import { Room } from "../models/Room.js";
 import { AppError } from "../utils/AppError.js";
 import { isValidObjectId } from "../utils/validation.js";
+import { getUserDeleteGraceDays } from "../config/env.js";
+import { safeRecordAuditLog } from "../services/auditLogService.js";
 
 // ─────────────────────────────────────────
 // Helpers
@@ -72,6 +74,53 @@ async function syncCompletedBookings() {
 function resolveBookingStatus({ status, endTime }) {
   if (status === "cancelled") return "cancelled";
   return new Date(endTime) < new Date() ? "completed" : "active";
+}
+
+function toBookingAuditSnapshot(booking) {
+  if (!booking) return null;
+
+  const source =
+    typeof booking.toObject === "function" ? booking.toObject() : booking;
+
+  const id = source.id || source._id;
+  const roomId = source.roomId?._id || source.roomId;
+  const userId = source.userId?._id || source.userId;
+
+  return {
+    id: id ? id.toString() : null,
+    userId: userId ? userId.toString() : null,
+    roomId: roomId ? roomId.toString() : null,
+    startTime: source.startTime ? new Date(source.startTime).toISOString() : null,
+    endTime: source.endTime ? new Date(source.endTime).toISOString() : null,
+    status: source.status || "active",
+    cancelledAt: source.cancelledAt
+      ? new Date(source.cancelledAt).toISOString()
+      : null,
+  };
+}
+
+function getChangedAuditFields(previousSnapshot, nextSnapshot) {
+  if (!previousSnapshot || !nextSnapshot) return [];
+
+  const fields = Array.from(
+    new Set([
+      ...Object.keys(previousSnapshot),
+      ...Object.keys(nextSnapshot),
+    ]),
+  );
+
+  return fields.filter(
+    (field) =>
+      JSON.stringify(previousSnapshot[field]) !==
+      JSON.stringify(nextSnapshot[field]),
+  );
+}
+
+function getRetentionCutoff(now = new Date()) {
+  const graceDays = getUserDeleteGraceDays();
+  const cutoff = new Date(now);
+  cutoff.setDate(cutoff.getDate() - graceDays);
+  return cutoff;
 }
 
 async function findPopulatedBooking(id, includeUser = true) {
@@ -294,6 +343,7 @@ export async function createBooking(req, res, next) {
       startTime: start,
       endTime: end,
       status: resolveBookingStatus({ status: "active", endTime: end }),
+      cancelledAt: null,
     });
 
     const populated = await findPopulatedBooking(booking._id, true);
@@ -349,6 +399,7 @@ export async function updateBooking(req, res, next) {
     }
 
     const { roomId, startTime, endTime, status } = req.body;
+    const previousSnapshot = toBookingAuditSnapshot(booking);
 
     if (roomId !== undefined) {
       if (!isValidObjectId(roomId)) {
@@ -408,7 +459,35 @@ export async function updateBooking(req, res, next) {
       });
     }
 
+    if (booking.status === "cancelled") {
+      if (!booking.cancelledAt) {
+        booking.cancelledAt = new Date();
+      }
+    } else {
+      booking.cancelledAt = null;
+    }
+
     await booking.save();
+
+    if (isAdmin) {
+      const nextSnapshot = toBookingAuditSnapshot(booking);
+      const changedFields = getChangedAuditFields(previousSnapshot, nextSnapshot);
+
+      if (changedFields.length > 0) {
+        await safeRecordAuditLog({
+          req,
+          action: "booking.updated",
+          targetType: "booking",
+          targetId: booking._id,
+          summary: "Admin updated a booking",
+          metadata: {
+            changedFields,
+            previous: previousSnapshot,
+            next: nextSnapshot,
+          },
+        });
+      }
+    }
 
     const populated = await findPopulatedBooking(booking._id, true);
     if (!populated) {
@@ -460,6 +539,84 @@ export async function deleteBooking(req, res, next) {
       return next(new AppError("Not allowed", 403));
     }
 
+    if (booking.status === "completed") {
+      return next(new AppError("Completed bookings cannot be cancelled", 400));
+    }
+
+    if (booking.status !== "cancelled") {
+      const previousSnapshot = toBookingAuditSnapshot(booking);
+
+      booking.status = "cancelled";
+      booking.cancelledAt = new Date();
+      await booking.save();
+
+      if (isAdmin) {
+        const nextSnapshot = toBookingAuditSnapshot(booking);
+
+        await safeRecordAuditLog({
+          req,
+          action: "booking.cancelled",
+          targetType: "booking",
+          targetId: booking._id,
+          summary: "Admin cancelled a booking",
+          metadata: {
+            changedFields: getChangedAuditFields(previousSnapshot, nextSnapshot),
+            previous: previousSnapshot,
+            next: nextSnapshot,
+          },
+        });
+      }
+    }
+
+    const populated = await findPopulatedBooking(booking._id, true);
+    if (!populated) {
+      return next(new AppError("Updated booking could not be loaded", 500));
+    }
+
+    try {
+      emitBookingEvent(req, "booking:updated", populated);
+      emitCalendarChanged(req);
+    } catch (socketErr) {
+      console.error("booking:cancelled emit error:", socketErr);
+    }
+
+    return res.json(populated);
+  } catch (err) {
+    console.error("deleteBooking error:", err);
+    next(err);
+  }
+}
+
+// ─────────────────────────────────────────
+// Hard Delete Booking (Admin)
+// ─────────────────────────────────────────
+
+export async function hardDeleteBooking(req, res, next) {
+  try {
+    const { id } = req.params;
+    const confirmText = String(req.body?.confirmText || "").trim();
+
+    if (!isValidObjectId(id)) {
+      return next(new AppError("Invalid booking id", 400));
+    }
+
+    if (confirmText !== "DELETE") {
+      return next(
+        new AppError("Hard delete requires confirmText=DELETE", 400),
+      );
+    }
+
+    const booking = await Booking.findById(id);
+    if (!booking) {
+      return next(new AppError("Booking not found", 404));
+    }
+
+    if (booking.status === "active") {
+      return next(
+        new AppError("Active bookings must be cancelled before hard delete", 400),
+      );
+    }
+
     const deletedPayload = {
       id: booking._id.toString(),
       userId: booking.userId.toString(),
@@ -468,16 +625,56 @@ export async function deleteBooking(req, res, next) {
 
     await Booking.findByIdAndDelete(id);
 
+    await safeRecordAuditLog({
+      req,
+      action: "booking.hard_deleted",
+      targetType: "booking",
+      targetId: id,
+      summary: "Booking permanently deleted",
+      metadata: {
+        userId: deletedPayload.userId,
+        roomId: deletedPayload.roomId,
+      },
+    });
+
     try {
       emitBookingEvent(req, "booking:deleted", deletedPayload);
       emitCalendarChanged(req);
     } catch (socketErr) {
-      console.error("booking:deleted emit error:", socketErr);
+      console.error("booking:hard-deleted emit error:", socketErr);
     }
 
     return res.json({ ok: true });
   } catch (err) {
-    console.error("deleteBooking error:", err);
+    console.error("hardDeleteBooking error:", err);
     next(err);
   }
+}
+
+// ─────────────────────────────────────────
+// Purge Expired Bookings (Job)
+// ─────────────────────────────────────────
+
+export async function purgeExpiredBookings(now = new Date()) {
+  const cutoff = getRetentionCutoff(now);
+
+  const result = await Booking.deleteMany({
+    $or: [
+      {
+        status: "cancelled",
+        cancelledAt: { $ne: null, $lte: cutoff },
+      },
+      {
+        status: "cancelled",
+        cancelledAt: null,
+        updatedAt: { $lte: cutoff },
+      },
+      {
+        status: "completed",
+        endTime: { $lte: cutoff },
+      },
+    ],
+  });
+
+  return { purgedBookings: result.deletedCount || 0 };
 }

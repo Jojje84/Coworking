@@ -29,6 +29,11 @@ const bookingSchema = new mongoose.Schema(
       enum: ["active", "cancelled", "completed"],
       default: "active",
     },
+    cancelledAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
   },
   { timestamps: true },
 );

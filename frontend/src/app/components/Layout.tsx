@@ -15,12 +15,17 @@ import {
   X,
   UserCircle2,
   ChevronDown,
+  Settings,
+  ShieldCheck,
+  Megaphone,
 } from "lucide-react";
 import { useState } from "react";
 import { ProfileModal } from "./ProfileModal";
+import { useData } from "../context/DataContext";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
+  const { adminAnnouncement, userAnnouncement } = useData();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -45,6 +50,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { path: "/admin/rooms", label: "Room Management", icon: DoorOpen },
     { path: "/admin/users", label: "User Management", icon: Users },
     { path: "/admin/bookings", label: "All Bookings", icon: Calendar },
+    ...(user?.permissions?.manageSettings
+      ? [{ path: "/admin/settings", label: "System Settings", icon: Settings }]
+      : []),
+    ...(user?.permissions?.viewAuditLogs
+      ? [{ path: "/admin/audit-logs", label: "Audit Logs", icon: ShieldCheck }]
+      : []),
   ];
 
   const links = user?.role === "admin" ? adminLinks : userLinks;
@@ -86,7 +97,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <button
                 type="button"
                 onClick={() => setProfileModalOpen(true)}
-                className="group flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2 text-left shadow-sm transition-all hover:border-blue-200 hover:bg-blue-50/60 hover:shadow cursor-pointer"
+                className="group flex max-w-[220px] items-center gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2 text-left shadow-sm transition-all hover:border-blue-200 hover:bg-blue-50/60 hover:shadow cursor-pointer"
                 aria-label="Open profile settings"
                 title="Edit profile"
               >
@@ -94,11 +105,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   <UserCircle2 className="h-6 w-6" />
                 </div>
 
-                <div className="leading-tight">
-                  <div className="text-sm font-semibold text-gray-900">
+                <div className="min-w-0 leading-tight">
+                  <div className="truncate whitespace-nowrap text-sm font-semibold text-gray-900">
                     {user?.username}
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="truncate whitespace-nowrap text-xs text-gray-500">
                     {user?.role === "admin" ? "Admin" : "User"} · Edit profile
                   </div>
                 </div>
@@ -164,11 +175,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     <UserCircle2 className="h-6 w-6" />
                   </div>
 
-                  <div className="flex-1 leading-tight">
-                    <div className="text-sm font-semibold text-gray-900">
+                  <div className="min-w-0 flex-1 leading-tight">
+                    <div className="truncate whitespace-nowrap text-sm font-semibold text-gray-900">
                       {user?.username}
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="truncate whitespace-nowrap text-xs text-gray-500">
                       {user?.role === "admin" ? "Admin" : "User"} · Edit profile
                     </div>
                   </div>
@@ -190,6 +201,28 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </nav>
 
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        {user?.role === "admin" && adminAnnouncement && (
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 shadow-sm">
+            <div className="flex items-start gap-3">
+              <Megaphone className="mt-0.5 h-5 w-5" />
+              <div>
+                <p className="text-sm font-semibold">Admin announcement</p>
+                <p className="mt-1 text-sm leading-6">{adminAnnouncement}</p>
+              </div>
+            </div>
+          </div>
+        )}
+        {user?.role === "user" && userAnnouncement && (
+          <div className="mb-6 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-blue-900 shadow-sm">
+            <div className="flex items-start gap-3">
+              <Megaphone className="mt-0.5 h-5 w-5" />
+              <div>
+                <p className="text-sm font-semibold">User announcement</p>
+                <p className="mt-1 text-sm leading-6">{userAnnouncement}</p>
+              </div>
+            </div>
+          </div>
+        )}
         {children}
       </main>
 

@@ -155,12 +155,12 @@ export function MyBookings() {
       setDeletingBooking(null);
       setNotice({
         type: "success",
-        message: "Booking deleted successfully.",
+        message: "Booking cancelled successfully.",
       });
     } else {
       setNotice({
         type: "error",
-        message: "Could not delete booking.",
+        message: "Could not cancel booking.",
       });
     }
   };
@@ -264,7 +264,7 @@ export function MyBookings() {
                 className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-50 px-4 py-2.5 font-medium text-red-700 transition-colors hover:bg-red-100"
               >
                 <Trash2 className="h-4 w-4" />
-                Delete
+                Cancel
               </button>
             </div>
           )}
@@ -435,10 +435,10 @@ export function MyBookings() {
 
               <div className="flex-1">
                 <Dialog.Title className="text-lg font-semibold text-gray-900">
-                  Delete booking
+                  Cancel booking
                 </Dialog.Title>
                 <p className="mt-1 text-sm text-gray-600">
-                  Are you sure you want to permanently delete this booking?
+                  Are you sure you want to cancel this booking?
                 </p>
               </div>
             </div>
@@ -456,7 +456,7 @@ export function MyBookings() {
                 onClick={handleDelete}
                 className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 font-medium text-white transition-colors hover:bg-red-700"
               >
-                Delete booking
+                Cancel booking
               </button>
             </div>
           </Dialog.Content>

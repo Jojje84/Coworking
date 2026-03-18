@@ -8,6 +8,7 @@
     "start": "node src/server.js",
     "test": "node --test",
     "test:ci": "node --test --test-concurrency=1 --test-reporter=spec",
+    "migrate:audit:auth-actors": "node src/seed/backfillAuthAuditActors.js",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
