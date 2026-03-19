@@ -12,9 +12,9 @@ import {
   hardDeleteBooking,
   checkAvailability,
 } from "../controllers/bookingController.js";
-import { requireAuth } from "../middleware/auth.js";
-import { requireAdmin } from "../middleware/admin.js";
-import { requirePermission } from "../middleware/permissions.js";
+import { protect } from "../middleware/protect.js";
+import { authorize, authorizePermission } from "../middleware/authorize.js";
+import { validateObjectIdParam } from "../middleware/validate.js";
 
 const router = express.Router();
 
@@ -50,7 +50,7 @@ const router = express.Router();
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get("/", requireAuth, getBookings);
+router.get("/", protect, getBookings);
 
 /**
  * @swagger
@@ -98,7 +98,7 @@ router.get("/", requireAuth, getBookings);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get("/calendar", requireAuth, getCalendarBookings);
+router.get("/calendar", protect, getCalendarBookings);
 
 /**
  * @swagger
@@ -193,7 +193,7 @@ router.get("/availability", checkAvailability);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post("/", requireAuth, createBooking);
+router.post("/", protect, createBooking);
 
 /**
  * @swagger
@@ -255,7 +255,7 @@ router.post("/", requireAuth, createBooking);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.put("/:id", requireAuth, updateBooking);
+router.put("/:id", protect, validateObjectIdParam("id"), updateBooking);
 
 /**
  * @swagger
@@ -305,7 +305,7 @@ router.put("/:id", requireAuth, updateBooking);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.delete("/:id", requireAuth, deleteBooking);
+router.delete("/:id", protect, validateObjectIdParam("id"), deleteBooking);
 
 /**
  * @swagger
@@ -368,9 +368,10 @@ router.delete("/:id", requireAuth, deleteBooking);
  */
 router.delete(
   "/:id/hard",
-  requireAuth,
-  requireAdmin,
-  requirePermission("bookingHardDelete"),
+  protect,
+  authorize("admin"),
+  validateObjectIdParam("id"),
+  authorizePermission("bookingHardDelete"),
   hardDeleteBooking,
 );
 

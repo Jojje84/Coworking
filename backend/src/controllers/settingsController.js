@@ -1,4 +1,4 @@
-import { AppError } from "../utils/AppError.js";
+import { AppError } from "../utils/appError.js";
 import {
   getOrCreateAppSettings,
   toSettingsResponse,

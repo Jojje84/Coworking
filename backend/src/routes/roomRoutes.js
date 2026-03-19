@@ -9,8 +9,9 @@ import {
   updateRoom,
   deleteRoom,
 } from "../controllers/roomController.js";
-import { requireAuth } from "../middleware/auth.js";
-import { requireAdmin } from "../middleware/admin.js";
+import { protect } from "../middleware/protect.js";
+import { authorize } from "../middleware/authorize.js";
+import { validateObjectIdParam } from "../middleware/validate.js";
 
 const router = express.Router();
 
@@ -65,7 +66,7 @@ router.get("/", getRooms);
  *       403:
  *         description: Admin access required
  */
-router.post("/", requireAuth, requireAdmin, createRoom);
+router.post("/", protect, authorize("admin"), createRoom);
 
 /**
  * @swagger
@@ -120,9 +121,21 @@ router.post("/", requireAuth, requireAdmin, createRoom);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.put("/:id", requireAuth, requireAdmin, updateRoom);
+router.put(
+  "/:id",
+  protect,
+  authorize("admin"),
+  validateObjectIdParam("id"),
+  updateRoom,
+);
 
-router.patch("/:id", requireAuth, requireAdmin, updateRoom);
+router.patch(
+  "/:id",
+  protect,
+  authorize("admin"),
+  validateObjectIdParam("id"),
+  updateRoom,
+);
 
 /**
  * @swagger
@@ -165,6 +178,12 @@ router.patch("/:id", requireAuth, requireAdmin, updateRoom);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.delete("/:id", requireAuth, requireAdmin, deleteRoom);
+router.delete(
+  "/:id",
+  protect,
+  authorize("admin"),
+  validateObjectIdParam("id"),
+  deleteRoom,
+);
 
 export default router;

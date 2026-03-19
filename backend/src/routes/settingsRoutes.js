@@ -1,8 +1,10 @@
 import express from "express";
-import { requireAuth } from "../middleware/auth.js";
-import { requireAdmin } from "../middleware/admin.js";
-import { requirePermission } from "../middleware/permissions.js";
-import { getSettings, updateSettings } from "../controllers/settingsController.js";
+import { protect } from "../middleware/protect.js";
+import { authorize, authorizePermission } from "../middleware/authorize.js";
+import {
+  getSettings,
+  updateSettings,
+} from "../controllers/settingsController.js";
 
 const router = express.Router();
 
@@ -29,11 +31,7 @@ const router = express.Router();
  *             schema:
  *               $ref: '#/components/schemas/AppSettings'
  */
-router.get(
-  "/",
-  requireAuth,
-  getSettings,
-);
+router.get("/", protect, getSettings);
 
 /**
  * @swagger
@@ -59,9 +57,9 @@ router.get(
  */
 router.patch(
   "/",
-  requireAuth,
-  requireAdmin,
-  requirePermission("manageSettings"),
+  protect,
+  authorize("admin"),
+  authorizePermission("manageSettings"),
   updateSettings,
 );
 

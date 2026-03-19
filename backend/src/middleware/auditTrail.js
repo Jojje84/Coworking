@@ -3,10 +3,7 @@ import { safeRecordAuditLog } from "../services/auditLogService.js";
 const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 function normalizeTargetType(rawPath = "") {
-  const parts = String(rawPath)
-    .split("?")[0]
-    .split("/")
-    .filter(Boolean);
+  const parts = String(rawPath).split("?")[0].split("/").filter(Boolean);
 
   const apiIndex = parts[0] === "api" ? 1 : 0;
   const segment = parts[apiIndex] || "system";

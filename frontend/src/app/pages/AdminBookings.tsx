@@ -3,20 +3,17 @@
 // ─────────────────────────────────────────
 
 import { useMemo, useState } from "react";
-import { useData } from "../context/DataContext";
 import { useAuth } from "../context/AuthContext";
+import { useRooms } from "../context/RoomsContext";
+import { useBookings } from "../context/BookingsContext";
+import { useUsers } from "../context/UsersContext";
 import { Layout } from "../components/Layout";
 import { format } from "date-fns";
 import { sv } from "date-fns/locale";
-import {
-  Calendar,
-  Search,
-  Filter,
-  CheckCircle2,
-  Clock3,
-  ClipboardList,
-  Trash2,
-} from "lucide-react";
+import { CheckCircle2, Clock3, ClipboardList, Trash2 } from "lucide-react";
+import { getBookingLastActivityTime } from "../../utils/booking";
+import { AdminBookingsFilters } from "../components/bookings/AdminBookingsFilters";
+import { AdminBookingsTable } from "../components/bookings/AdminBookingsTable";
 
 type StatCardProps = {
   title: string;
@@ -46,38 +43,12 @@ function StatCard({ title, value, subtitle, icon }: StatCardProps) {
   );
 }
 
-function EmptyState() {
-  return (
-    <div className="p-12 text-center">
-      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
-        <Calendar className="h-8 w-8 text-gray-400" />
-      </div>
-      <p className="mt-4 text-lg font-semibold text-gray-700">
-        No bookings found
-      </p>
-      <p className="mt-2 text-sm text-gray-500">
-        Try changing your search or filter settings.
-      </p>
-    </div>
-  );
-}
-
-function getCreatedTime(booking: any) {
-  return new Date(booking.createdAt).getTime();
-}
-
-function getUpdatedTime(booking: any) {
-  const updatedAt = booking.updatedAt ?? booking.createdAt;
-  return new Date(updatedAt).getTime();
-}
-
-function getLastActivityTime(booking: any) {
-  return Math.max(getCreatedTime(booking), getUpdatedTime(booking));
-}
-
 export function AdminBookings() {
   const { user: currentUser } = useAuth();
-  const { bookings, rooms, users, newBookingIds, deleteBooking, hardDeleteBooking } = useData();
+  const { rooms } = useRooms();
+  const { users } = useUsers();
+  const { bookings, newBookingIds, deleteBooking, hardDeleteBooking } =
+    useBookings();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<
@@ -124,7 +95,8 @@ export function AdminBookings() {
         return matchesSearch && matchesStatus && matchesOwnerState;
       })
       .sort(
-        (a: any, b: any) => getLastActivityTime(b) - getLastActivityTime(a),
+        (a: any, b: any) =>
+          getBookingLastActivityTime(b) - getBookingLastActivityTime(a),
       );
   }, [bookings, rooms, users, searchQuery, filterStatus, filterOwnerState]);
 
@@ -135,15 +107,20 @@ export function AdminBookings() {
   const hasHardDeletableBookings = useMemo(
     () =>
       filteredBookings.some(
-        (booking: any) => booking.status === "cancelled" || booking.status === "completed",
+        (booking: any) =>
+          booking.status === "cancelled" || booking.status === "completed",
       ),
     [filteredBookings],
   );
   const canHardDelete = Boolean(currentUser?.permissions?.bookingHardDelete);
 
   const activeCount = bookings.filter((b) => b.status === "active").length;
-  const completedCount = bookings.filter((b) => b.status === "completed").length;
-  const cancelledCount = bookings.filter((b) => b.status === "cancelled").length;
+  const completedCount = bookings.filter(
+    (b) => b.status === "completed",
+  ).length;
+  const cancelledCount = bookings.filter(
+    (b) => b.status === "cancelled",
+  ).length;
 
   const bookingToDelete = deletingBookingId
     ? (bookings.find((b) => b.id === deletingBookingId) ?? null)
@@ -245,272 +222,31 @@ export function AdminBookings() {
           />
         </div>
 
-        <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-          <div className="mb-5">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Search and filter
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Find bookings by room, username, email, status or user state.
-            </p>
-          </div>
+        <AdminBookingsFilters
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          filterStatus={filterStatus}
+          onFilterStatusChange={setFilterStatus}
+          filterOwnerState={filterOwnerState}
+          onFilterOwnerStateChange={setFilterOwnerState}
+        />
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                <Search className="mr-1 inline h-4 w-4" />
-                Search bookings
-              </label>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search for room, username or email..."
-                className="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                <Filter className="mr-1 inline h-4 w-4" />
-                Status
-              </label>
-              <select
-                value={filterStatus}
-                onChange={(e) =>
-                  setFilterStatus(
-                    e.target.value as
-                      | "all"
-                      | "active"
-                      | "completed"
-                      | "cancelled",
-                  )
-                }
-                className="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              >
-                <option value="all">All statuses</option>
-                <option value="active">Active</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">
-                User state
-              </label>
-              <select
-                value={filterOwnerState}
-                onChange={(e) =>
-                  setFilterOwnerState(
-                    e.target.value as "all" | "active-users" | "deleted-users",
-                  )
-                }
-                className="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              >
-                <option value="all">All users</option>
-                <option value="active-users">Active users only</option>
-                <option value="deleted-users">Soft deleted users only</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-          <div className="border-b border-gray-100 p-6">
-            <h2 className="text-xl font-semibold text-gray-900">
-              Booking overview
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Detailed list of all filtered bookings
-            </p>
-          </div>
-
-          {filteredBookings.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full">
-                <thead className="border-b border-gray-100 bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      Room
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      User
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      Date
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      Time
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      Status
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                      Last activity
-                    </th>
-                    {(hasActionableBookings || (hasHardDeletableBookings && canHardDelete)) && (
-                      <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                        Actions
-                      </th>
-                    )}
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-gray-100 bg-white">
-                  {filteredBookings.map((booking: any) => {
-                    const room = rooms.find((r) => r.id === booking.roomId);
-                    const user = users.find((u) => u.id === booking.userId);
-                    const isDeletedUser = Boolean(user?.isDeleted);
-
-                    const createdTime = getCreatedTime(booking);
-                    const updatedTime = getUpdatedTime(booking);
-                    const isNew =
-                      newBookingIds.includes(booking.id) ||
-                      now - createdTime <= RECENT_WINDOW_MS;
-
-                    const isUpdated =
-                      !isNew &&
-                      updatedTime > createdTime + 1000 &&
-                      now - updatedTime <= RECENT_WINDOW_MS;
-
-                    const displayStatus =
-                      booking.status === "active"
-                        ? "Active"
-                        : booking.status === "cancelled"
-                          ? "Cancelled"
-                          : "Completed";
-
-                    const statusClasses =
-                      booking.status === "active"
-                        ? "bg-green-100 text-green-800"
-                        : booking.status === "cancelled"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-gray-100 text-gray-800";
-
-                    const rowHighlightClass = isNew
-                      ? "bg-blue-50/70"
-                      : isUpdated
-                        ? "bg-amber-50/80"
-                        : "";
-
-                    const activityText =
-                      isNew || isUpdated
-                        ? "Just now"
-                        : format(new Date(updatedTime), "PP", {
-                            locale: sv,
-                          });
-
-                    return (
-                      <tr
-                        key={booking.id}
-                        className={`transition-colors hover:bg-gray-50/80 ${rowHighlightClass}`}
-                      >
-                        <td className="whitespace-nowrap px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <div className="font-medium text-gray-900">
-                              {room?.name ?? "Unknown room"}
-                            </div>
-
-                            {isNew && (
-                              <span className="inline-flex rounded-full bg-blue-600 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
-                                New
-                              </span>
-                            )}
-
-                            {isUpdated && (
-                              <span className="inline-flex rounded-full bg-amber-500 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
-                                Updated
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="text-sm text-gray-500">
-                            {room?.type === "workspace"
-                              ? "Workspace"
-                              : "Conference Room"}
-                          </div>
-                        </td>
-
-                        <td className="whitespace-nowrap px-6 py-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {user?.username ?? "Unknown user"}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {user?.email ?? "No email"}
-                          </div>
-                          {isDeletedUser && (
-                            <span className="mt-1 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
-                              User soft deleted
-                            </span>
-                          )}
-                        </td>
-
-                        <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                          {format(new Date(booking.startTime), "PP", {
-                            locale: sv,
-                          })}
-                        </td>
-
-                        <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                          {format(new Date(booking.startTime), "HH:mm")} -{" "}
-                          {format(new Date(booking.endTime), "HH:mm")}
-                        </td>
-
-                        <td className="whitespace-nowrap px-6 py-4">
-                          <span
-                            className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusClasses}`}
-                          >
-                            {displayStatus}
-                          </span>
-                        </td>
-
-                        <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-600">
-                          {activityText}
-                        </td>
-
-                        {(hasActionableBookings || (hasHardDeletableBookings && canHardDelete)) && (
-                          <td className="whitespace-nowrap px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              {booking.status === "active" && (
-                                <button
-                                  type="button"
-                                  onClick={() => setDeletingBookingId(booking.id)}
-                                  className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                  Cancel
-                                </button>
-                              )}
-
-                              {canHardDelete &&
-                                (booking.status === "cancelled" ||
-                                booking.status === "completed") && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setHardDeleteConfirmText("");
-                                    setHardDeletingBookingId(booking.id);
-                                  }}
-                                  className="inline-flex items-center gap-2 rounded-xl border border-red-300 bg-red-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-red-700"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                  Delete permanently
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        )}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        <AdminBookingsTable
+          bookings={filteredBookings as any}
+          rooms={rooms as any}
+          users={users as any}
+          newBookingIds={newBookingIds}
+          now={now}
+          recentWindowMs={RECENT_WINDOW_MS}
+          hasActionableBookings={hasActionableBookings}
+          hasHardDeletableBookings={hasHardDeletableBookings}
+          canHardDelete={canHardDelete}
+          onCancelBooking={setDeletingBookingId}
+          onOpenHardDelete={(bookingId) => {
+            setHardDeleteConfirmText("");
+            setHardDeletingBookingId(bookingId);
+          }}
+        />
       </div>
 
       {deletingBookingId && (

@@ -1,47 +1,27 @@
-import jwt from "jsonwebtoken";
-import bcrypt from "bcrypt";
-import { User } from "../models/User.js";
-import { AppError } from "../utils/AppError.js";
-import { isValidEmail, isNonEmptyString } from "../utils/validation.js";
+import { AppError } from "../utils/appError.js";
 import { createUserService } from "../services/userService.js";
-import { getJwtSecret } from "../config/env.js";
-import { toPermissionResponse } from "../utils/permissions.js";
 import { getOrCreateAppSettings } from "../services/settingsService.js";
 import { safeRecordAuditLog } from "../services/auditLogService.js";
+import { emitUserEvent } from "../services/notificationService.js";
+import { User } from "../models/User.js";
+import {
+  signToken,
+  validateLoginCredentials,
+  buildAuthResponse,
+} from "../services/authService.js";
+import { logger } from "../utils/logger.js";
 
-// ─────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────
+const AUTH_COOKIE_NAME = process.env.AUTH_COOKIE_NAME || "cowork_token";
 
-function signToken(user) {
-  return jwt.sign(
-    { id: user._id.toString(), role: user.role },
-    getJwtSecret(),
-    { expiresIn: process.env.JWT_EXPIRES_IN || "1d" },
-  );
-}
+function getAuthCookieOptions() {
+  const isProd = process.env.NODE_ENV === "production";
 
-function toUserResponse(user) {
   return {
-    id: user._id.toString(),
-    username: user.username,
-    email: user.email,
-    role: user.role,
-    permissions: toPermissionResponse(user.permissions),
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+    path: "/",
   };
-}
-
-function emitUserCreated(req, payload) {
-  const io = req.app.get("io");
-  if (!io) return;
-
-  if (payload?.id) {
-    io.to(payload.id).emit("user:created", payload);
-  }
-
-  io.to("admins").emit("user:created", payload);
 }
 
 // ─────────────────────────────────────────
@@ -53,9 +33,7 @@ export async function register(req, res, next) {
     const settings = await getOrCreateAppSettings();
 
     if (!settings.allowSelfRegistration) {
-      return next(
-        new AppError("Self registration is currently disabled", 403),
-      );
+      return next(new AppError("Self registration is currently disabled", 403));
     }
 
     const user = await createUserService({
@@ -65,7 +43,7 @@ export async function register(req, res, next) {
       role: "User",
     });
 
-    const payload = toUserResponse(user);
+    const payload = buildAuthResponse(user);
 
     await safeRecordAuditLog({
       req,
@@ -81,9 +59,9 @@ export async function register(req, res, next) {
     });
 
     try {
-      emitUserCreated(req, payload);
+      emitUserEvent(req, "user:created", payload);
     } catch (socketErr) {
-      console.error("user:created emit error from register:", socketErr);
+      logger.error("user:created emit error from register:", socketErr);
     }
 
     return res.status(201).json(payload);
@@ -98,78 +76,14 @@ export async function register(req, res, next) {
 
 export async function login(req, res, next) {
   try {
-    let { email, password } = req.body;
-
-    if (!isNonEmptyString(email) || !isNonEmptyString(password)) {
-      await safeRecordAuditLog({
-        req,
-        action: "auth.login_failed",
-        targetType: "auth",
-        summary: "Login failed: missing credentials",
-        metadata: {
-          reason: "missing_credentials",
-          email: typeof email === "string" ? email.trim().toLowerCase() : "",
-        },
-      });
-      return next(new AppError("email and password are required", 400));
-    }
-
-    email = email.trim().toLowerCase();
-    password = password.trim();
-
-    if (!isValidEmail(email)) {
-      await safeRecordAuditLog({
-        req,
-        action: "auth.login_failed",
-        targetType: "auth",
-        summary: "Login failed: invalid email format",
-        metadata: {
-          reason: "invalid_email_format",
-          email,
-        },
-      });
-      return next(new AppError("Invalid email format", 400));
-    }
-
-    const user = await User.findOne({
-      email,
-      isDeleted: { $ne: true },
+    const user = await validateLoginCredentials({
+      email: req.body.email,
+      password: req.body.password,
     });
 
-    if (!user) {
-      await safeRecordAuditLog({
-        req,
-        action: "auth.login_failed",
-        targetType: "auth",
-        summary: "Login failed: invalid credentials",
-        metadata: {
-          reason: "invalid_credentials",
-          email,
-        },
-      });
-      return next(new AppError("Invalid credentials", 401));
-    }
-
-    const passwordMatch = await bcrypt.compare(password, user.password);
-
-    if (!passwordMatch) {
-      await safeRecordAuditLog({
-        req,
-        action: "auth.login_failed",
-        actorId: user._id,
-        actorRole: user.role,
-        targetType: "auth",
-        summary: "Login failed: invalid credentials",
-        metadata: {
-          reason: "invalid_credentials",
-          email,
-          userId: user._id.toString(),
-        },
-      });
-      return next(new AppError("Invalid credentials", 401));
-    }
-
     const token = signToken(user);
+
+    res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
 
     await safeRecordAuditLog({
       req,
@@ -188,16 +102,69 @@ export async function login(req, res, next) {
 
     return res.json({
       token,
-      user: {
-        id: user._id.toString(),
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        permissions: toPermissionResponse(user.permissions),
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      },
+      user: buildAuthResponse(user),
     });
+  } catch (err) {
+    if (err instanceof AppError && err.statusCode === 401) {
+      const email = String(req.body.email || "")
+        .trim()
+        .toLowerCase();
+      await safeRecordAuditLog({
+        req,
+        action: "auth.login_failed",
+        targetType: "auth",
+        summary: "Login failed: invalid credentials",
+        metadata: {
+          reason: "invalid_credentials",
+          email,
+        },
+      }).catch(() => {});
+    }
+    next(err);
+  }
+}
+
+export async function me(req, res, next) {
+  try {
+    const user = await User.findOne({
+      _id: req.user.id,
+      isDeleted: { $ne: true },
+    });
+
+    if (!user) {
+      return next(new AppError("User is inactive or deleted", 401));
+    }
+
+    const token = signToken(user);
+    res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
+
+    return res.json({
+      token,
+      user: buildAuthResponse(user),
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function logout(req, res, next) {
+  try {
+    res.clearCookie(AUTH_COOKIE_NAME, getAuthCookieOptions());
+
+    await safeRecordAuditLog({
+      req,
+      action: "auth.logout",
+      actorId: req.user?.id,
+      actorRole: req.user?.role,
+      targetType: "auth",
+      targetId: req.user?.id,
+      summary: "User logged out",
+      metadata: {
+        userId: req.user?.id,
+      },
+    }).catch(() => {});
+
+    return res.json({ success: true });
   } catch (err) {
     next(err);
   }

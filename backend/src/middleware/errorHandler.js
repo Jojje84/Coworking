@@ -1,8 +1,9 @@
 // ─────────────────────────────────────────
 // Global Error Handler
 // ─────────────────────────────────────────
+import { logger } from "../utils/logger.js";
 
-export function errorHandler(err, req, res, next) {
+export function errorHandler(err, req, res, _next) {
   const statusCode = Number.isInteger(err.statusCode) ? err.statusCode : 500;
   const status = err.status || "error";
   const isProduction = process.env.NODE_ENV === "production";
@@ -11,7 +12,7 @@ export function errorHandler(err, req, res, next) {
       ? "Internal server error"
       : err.message || "Something went wrong";
 
-  console.error("❌ Error:", {
+  logger.error("❌ Error:", {
     message: err.message,
     statusCode,
     path: req.originalUrl,

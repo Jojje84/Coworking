@@ -12,6 +12,7 @@ import auditLogRoutes from "./routes/auditLogRoutes.js";
 import { auditWriteRequests } from "./middleware/auditTrail.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import swaggerSpec from "./config/swagger.js";
+import { logger } from "./utils/logger.js";
 
 // ─────────────────────────────────────────
 // CORS
@@ -66,7 +67,7 @@ export function createApp() {
   app.use(auditWriteRequests);
 
   app.use((req, _res, next) => {
-    console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
+    logger.debug(`${new Date().toISOString()} ${req.method} ${req.url}`);
     next();
   });
 

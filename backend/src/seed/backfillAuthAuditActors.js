@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { connectDB } from "../config/db.js";
 import { AuditLog } from "../models/AuditLog.js";
 import { User } from "../models/User.js";
+import { logger } from "../utils/logger.js";
 
 dotenv.config();
 
@@ -17,12 +18,14 @@ async function run() {
   await connectDB();
 
   const candidateLogs = await AuditLog.find({
-    action: { $in: ["auth.login_succeeded", "auth.login_failed", "auth.register"] },
+    action: {
+      $in: ["auth.login_succeeded", "auth.login_failed", "auth.register"],
+    },
     $or: [{ actorId: null }, { actorRole: { $in: [null, "", "unknown"] } }],
   }).select("_id action targetId metadata actorId actorRole");
 
   if (candidateLogs.length === 0) {
-    console.log("No auth audit logs need backfill.");
+    logger.info("No auth audit logs need backfill.");
     process.exit(0);
   }
 
@@ -68,22 +71,22 @@ async function run() {
   }
 
   if (updates.length === 0) {
-    console.log("No resolvable auth audit logs were found.");
+    logger.info("No resolvable auth audit logs were found.");
     process.exit(0);
   }
 
   const result = await AuditLog.bulkWrite(updates, { ordered: false });
 
-  console.log("Backfill finished.");
-  console.log(`Matched: ${candidateLogs.length}`);
-  console.log(`Updated: ${result.modifiedCount || 0}`);
-  console.log(`Resolved with actorId+role: ${resolvedFromUser}`);
-  console.log(`Resolved with role only: ${resolvedRoleOnly}`);
+  logger.info("Backfill finished.");
+  logger.info(`Matched: ${candidateLogs.length}`);
+  logger.info(`Updated: ${result.modifiedCount || 0}`);
+  logger.info(`Resolved with actorId+role: ${resolvedFromUser}`);
+  logger.info(`Resolved with role only: ${resolvedRoleOnly}`);
 
   process.exit(0);
 }
 
 run().catch((err) => {
-  console.error("Backfill failed:", err);
+  logger.error("Backfill failed:", err);
   process.exit(1);
 });

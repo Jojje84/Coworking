@@ -1,5 +1,5 @@
 import { User } from "../models/User.js";
-import { AppError } from "../utils/AppError.js";
+import { AppError } from "../utils/appError.js";
 
 // ─────────────────────────────────────────
 // Admin Guard Middleware
@@ -11,7 +11,9 @@ export async function requireAdmin(req, res, next) {
       return next(new AppError("Not authenticated", 401));
     }
 
-    const currentUser = await User.findById(req.user.id).select("role isDeleted");
+    const currentUser = await User.findById(req.user.id).select(
+      "role isDeleted",
+    );
 
     if (!currentUser) {
       return next(new AppError("User not found", 401));

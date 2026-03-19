@@ -3,10 +3,14 @@ import { AppSettings } from "../models/AppSettings.js";
 const SETTINGS_SINGLETON_KEY = "app";
 
 export async function getOrCreateAppSettings() {
-  let settings = await AppSettings.findOne({ singletonKey: SETTINGS_SINGLETON_KEY });
+  let settings = await AppSettings.findOne({
+    singletonKey: SETTINGS_SINGLETON_KEY,
+  });
 
   if (!settings) {
-    settings = await AppSettings.create({ singletonKey: SETTINGS_SINGLETON_KEY });
+    settings = await AppSettings.create({
+      singletonKey: SETTINGS_SINGLETON_KEY,
+    });
   }
 
   return settings;

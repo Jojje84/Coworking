@@ -12,6 +12,7 @@ import {
 import { User } from "./models/User.js";
 import { purgeSoftDeletedUsers } from "./controllers/userController.js";
 import { purgeExpiredBookings } from "./controllers/bookingController.js";
+import { logger } from "./utils/logger.js";
 
 dotenv.config();
 
@@ -48,18 +49,18 @@ async function start() {
       ]);
 
       if (userResult.purgedUsers > 0) {
-        console.log(
+        logger.info(
           `🧹 Purged ${userResult.purgedUsers} expired soft-deleted users`,
         );
       }
 
       if (bookingResult.purgedBookings > 0) {
-        console.log(
+        logger.info(
           `🧹 Purged ${bookingResult.purgedBookings} expired cancelled/completed bookings`,
         );
       }
     } catch (err) {
-      console.error("soft-delete purge error:", err);
+      logger.error("soft-delete purge error:", err);
     }
   }, purgeIntervalMs);
 
@@ -117,16 +118,16 @@ async function start() {
         socket.join("admins");
       }
 
-      console.log(
+      logger.debug(
         `✅ Socket connected: ${socket.id} user=${userId} role=${role}`,
       );
     } catch (err) {
-      console.error("Socket connection setup error:", err);
+      logger.error("Socket connection setup error:", err);
       socket.disconnect();
     }
 
     socket.on("disconnect", () => {
-      console.log(`❌ Socket disconnected: ${socket.id}`);
+      logger.debug(`❌ Socket disconnected: ${socket.id}`);
     });
   });
 
@@ -135,9 +136,9 @@ async function start() {
   // ─────────────────────────────────────────
 
   server.listen(PORT, () => {
-    console.log("✅ API running on port " + PORT);
-    console.log(`📘 Swagger docs: http://localhost:${PORT}/api/docs`);
-    console.log(
+    logger.info("✅ API running on port " + PORT);
+    logger.info(`📘 Swagger docs: http://localhost:${PORT}/api/docs`);
+    logger.info(
       `🧹 Soft-delete purge job interval: ${purgeIntervalMinutes} minute(s)`,
     );
   });

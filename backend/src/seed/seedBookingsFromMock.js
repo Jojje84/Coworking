@@ -3,14 +3,15 @@
 // ─────────────────────────────────────────
 
 import dotenv from "dotenv";
-import mongoose from "mongoose"; // ✅ lägg till denna
+import mongoose from "mongoose"; // Ensure model registry is initialized
 import { connectDB } from "../config/db.js";
 import { User } from "../models/User.js";
 import { Booking } from "../models/Booking.js";
 import { Room } from "../models/Room.js";
+import { logger } from "../utils/logger.js";
 
 dotenv.config();
-console.log("REGISTERED MODELS (before connect):", mongoose.modelNames());
+logger.debug("REGISTERED MODELS (before connect):", mongoose.modelNames());
 
 const MOCK_BOOKINGS = [
   {
@@ -35,7 +36,7 @@ const MOCK_BOOKINGS = [
 
 async function seed() {
   await connectDB();
-  console.log("REGISTERED MODELS (after connect):", mongoose.modelNames());
+  logger.debug("REGISTERED MODELS (after connect):", mongoose.modelNames());
 
   // Optional: clear all old bookings so you can easily rerun the seed
   await Booking.deleteMany({});
@@ -61,7 +62,7 @@ async function seed() {
     });
 
     if (conflict) {
-      console.log(
+      logger.warn(
         `⚠️ Skipped (conflict): ${b.roomName} ${b.startTime} - ${b.endTime}`,
       );
       continue;
@@ -76,16 +77,16 @@ async function seed() {
     });
 
     created.push(booking);
-    console.log(
+    logger.info(
       `✅ Created booking: ${user.email} -> ${room.name} (${b.startTime} - ${b.endTime})`,
     );
   }
 
-  console.log(`\n✅ Done. Created ${created.length} bookings.`);
+  logger.info(`\n✅ Done. Created ${created.length} bookings.`);
   process.exit(0);
 }
 
 seed().catch((e) => {
-  console.error("❌ Seed bookings error:", e);
+  logger.error("❌ Seed bookings error:", e);
   process.exit(1);
 });

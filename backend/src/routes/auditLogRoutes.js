@@ -1,7 +1,6 @@
 import express from "express";
-import { requireAuth } from "../middleware/auth.js";
-import { requireAdmin } from "../middleware/admin.js";
-import { requirePermission } from "../middleware/permissions.js";
+import { protect } from "../middleware/protect.js";
+import { authorize, authorizePermission } from "../middleware/authorize.js";
 import { getAuditLogs } from "../controllers/auditLogController.js";
 
 const router = express.Router();
@@ -58,9 +57,9 @@ const router = express.Router();
  */
 router.get(
   "/",
-  requireAuth,
-  requireAdmin,
-  requirePermission("viewAuditLogs"),
+  protect,
+  authorize("admin"),
+  authorizePermission("viewAuditLogs"),
   getAuditLogs,
 );
 

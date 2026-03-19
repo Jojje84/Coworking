@@ -1,14 +1,19 @@
 import { useEffect, useState } from "react";
 import { Layout } from "../components/Layout";
 import { useAuth } from "../context/AuthContext";
+import { useSettings } from "../context/SettingsContext";
 import { AppSettings } from "../types";
 import { Save, Settings2 } from "lucide-react";
-import { io, Socket } from "socket.io-client";
-
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:5000";
+import {
+  getSettingsApi,
+  parseSettingsResponse,
+  updateSettingsApi,
+} from "../../api/settingsApi";
+import { logger } from "../../utils/logger";
 
 export function AdminSettings() {
   const { token } = useAuth();
+  const { adminAnnouncement, userAnnouncement } = useSettings();
 
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -25,11 +30,7 @@ export function AdminSettings() {
       setNotice("");
 
       try {
-        const res = await fetch(`${API_BASE_URL}/api/settings`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const res = await getSettingsApi(token);
 
         const data = await res.json().catch(() => null);
 
@@ -38,9 +39,9 @@ export function AdminSettings() {
           return;
         }
 
-        setSettings(data as AppSettings);
+        setSettings(parseSettingsResponse(data));
       } catch (err) {
-        console.error("load settings error:", err);
+        logger.error("load settings error:", err);
         setError("Could not load settings");
       } finally {
         setIsLoading(false);
@@ -51,31 +52,32 @@ export function AdminSettings() {
   }, [token]);
 
   useEffect(() => {
-    if (!token) return;
+    setSettings((prev) => {
+      if (!prev) return prev;
 
-    const socket: Socket = io(API_BASE_URL, {
-      auth: { token },
-      transports: ["websocket"],
-    });
+      const nextAdmin = String(adminAnnouncement || "").trim();
+      const nextUser = String(userAnnouncement || "").trim();
+      const changed =
+        prev.adminAnnouncement !== nextAdmin ||
+        prev.userAnnouncement !== nextUser;
 
-    socket.on("connect_error", (err) => {
-      console.error("admin settings socket connect error:", err.message);
-    });
+      if (!changed) return prev;
 
-    socket.on("settings:updated", (payload: any) => {
-      if (!payload) return;
-
-      setSettings(payload as AppSettings);
       setNotice("Settings updated live");
       setError("");
+
+      return {
+        ...prev,
+        adminAnnouncement: nextAdmin,
+        userAnnouncement: nextUser,
+      };
     });
+  }, [adminAnnouncement, userAnnouncement]);
 
-    return () => {
-      socket.disconnect();
-    };
-  }, [token]);
-
-  const updateField = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
+  const updateField = <K extends keyof AppSettings>(
+    key: K,
+    value: AppSettings[K],
+  ) => {
     setSettings((prev) => (prev ? { ...prev, [key]: value } : prev));
   };
 
@@ -87,18 +89,11 @@ export function AdminSettings() {
     setNotice("");
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/settings`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          allowSelfRegistration: settings.allowSelfRegistration,
-          maintenanceMode: settings.maintenanceMode,
-          adminAnnouncement: settings.adminAnnouncement,
-          userAnnouncement: settings.userAnnouncement,
-        }),
+      const res = await updateSettingsApi(token, {
+        allowSelfRegistration: settings.allowSelfRegistration,
+        maintenanceMode: settings.maintenanceMode,
+        adminAnnouncement: settings.adminAnnouncement,
+        userAnnouncement: settings.userAnnouncement,
       });
 
       const data = await res.json().catch(() => null);
@@ -108,10 +103,10 @@ export function AdminSettings() {
         return;
       }
 
-      setSettings(data as AppSettings);
+      setSettings(parseSettingsResponse(data));
       setNotice("Settings saved successfully");
     } catch (err) {
-      console.error("save settings error:", err);
+      logger.error("save settings error:", err);
       setError("Could not save settings");
     } finally {
       setIsSaving(false);
@@ -179,7 +174,9 @@ export function AdminSettings() {
                 type="checkbox"
                 className="mt-1 h-4 w-4"
                 checked={settings.maintenanceMode}
-                onChange={(e) => updateField("maintenanceMode", e.target.checked)}
+                onChange={(e) =>
+                  updateField("maintenanceMode", e.target.checked)
+                }
               />
               <span>
                 <span className="block text-sm font-medium text-gray-900">
@@ -197,7 +194,9 @@ export function AdminSettings() {
               </label>
               <textarea
                 value={settings.adminAnnouncement}
-                onChange={(e) => updateField("adminAnnouncement", e.target.value)}
+                onChange={(e) =>
+                  updateField("adminAnnouncement", e.target.value)
+                }
                 maxLength={500}
                 rows={5}
                 className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
@@ -214,7 +213,9 @@ export function AdminSettings() {
               </label>
               <textarea
                 value={settings.userAnnouncement}
-                onChange={(e) => updateField("userAnnouncement", e.target.value)}
+                onChange={(e) =>
+                  updateField("userAnnouncement", e.target.value)
+                }
                 maxLength={500}
                 rows={5}
                 className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"

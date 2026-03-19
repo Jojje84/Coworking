@@ -1,0 +1,4 @@
+# Exclude local environment files from git archive zip exports
+**/.env export-ignore
+**/.env.* export-ignore
+**/.env.example -export-ignore

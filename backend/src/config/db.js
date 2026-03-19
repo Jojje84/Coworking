@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { logger } from "../utils/logger.js";
 
 // ─────────────────────────────────────────
 // Database Connection
@@ -10,9 +11,9 @@ export async function connectDB() {
     if (!uri) throw new Error("Missing MONGO_URI in .env");
 
     await mongoose.connect(uri);
-    console.log("✅ MongoDB connected (Mongoose)");
+    logger.info("✅ MongoDB connected (Mongoose)");
   } catch (err) {
-    console.error("❌ MongoDB connection error:", err.message);
+    logger.error("❌ MongoDB connection error:", err.message);
     process.exit(1);
   }
 }

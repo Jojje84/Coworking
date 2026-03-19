@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import { connectDB } from "../config/db.js";
 import { User } from "../models/User.js";
 import bcrypt from "bcrypt";
+import { logger } from "../utils/logger.js";
 
 dotenv.config();
 
@@ -52,27 +53,26 @@ async function seed() {
     username: u.username,
     email: u.email,
     role: u.role,
-    permissions:
-      u.permissions || {
-        bookingHardDelete: false,
-        userHardDelete: false,
-        manageAdmins: false,
-        manageSettings: false,
-        viewAuditLogs: false,
-      },
+    permissions: u.permissions || {
+      bookingHardDelete: false,
+      userHardDelete: false,
+      manageAdmins: false,
+      manageSettings: false,
+      viewAuditLogs: false,
+    },
     password: hash,
   }));
 
   const created = await User.insertMany(docs);
 
-  console.log("✅ Seeded users:");
-  created.forEach((u) => console.log(u._id.toString(), u.username, u.role));
-  console.log(`✅ Default password for seeded users: ${defaultPassword}`);
+  logger.info("✅ Seeded users:");
+  created.forEach((u) => logger.info(u._id.toString(), u.username, u.role));
+  logger.info(`✅ Default password for seeded users: ${defaultPassword}`);
 
   process.exit(0);
 }
 
 seed().catch((e) => {
-  console.error("❌ Seed users error:", e);
+  logger.error("❌ Seed users error:", e);
   process.exit(1);
 });

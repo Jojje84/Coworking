@@ -1,22 +1,31 @@
-// ─────────────────────────────────────────
+// -------------------------------
 // Auth Context
-// ─────────────────────────────────────────
+// -------------------------------
 
 import {
   createContext,
+  ReactNode,
   useContext,
   useEffect,
-  useMemo,
   useState,
-  ReactNode,
 } from "react";
 import { io, Socket } from "socket.io-client";
-import { User } from "../types";
 import { toast } from "sonner";
+import {
+  getSessionApi,
+  loginApi,
+  logoutApi,
+  registerApi,
+  updateProfileApi,
+} from "../../api/authApi";
+import { User } from "../types";
+import { logger } from "../../utils/logger";
 
 interface AuthContextType {
   user: User | null;
   token: string | null;
+  socket: Socket | null;
+  isSocketConnected: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   register: (
     username: string,
@@ -35,12 +44,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:5000";
-const LS_TOKEN_KEY = "cowork_token";
 const LS_USER_KEY = "cowork_user";
-
-// ─────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────
 
 function mapApiUser(apiUser: any): User {
   return {
@@ -59,46 +63,78 @@ function mapApiUser(apiUser: any): User {
   };
 }
 
-// ─────────────────────────────────────────
-// AuthProvider
-// ─────────────────────────────────────────
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
-
-  // ─────────────────────────────────────────
-  // Restore Session from LocalStorage
-  // ─────────────────────────────────────────
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
 
   useEffect(() => {
-    try {
-      const storedToken = localStorage.getItem(LS_TOKEN_KEY);
-      const storedUser = localStorage.getItem(LS_USER_KEY);
+    let cancelled = false;
 
-      if (!storedToken || !storedUser) return;
+    async function restoreSession() {
+      try {
+        const storedUser = localStorage.getItem(LS_USER_KEY);
 
-      const parsedUser = JSON.parse(storedUser) as User;
+        if (storedUser) {
+          const parsedUser = JSON.parse(storedUser) as User;
+          if (parsedUser?.id && parsedUser?.email) {
+            setUser(parsedUser);
+          } else {
+            localStorage.removeItem(LS_USER_KEY);
+          }
+        }
 
-      if (!parsedUser?.id || !parsedUser?.email) {
-        localStorage.removeItem(LS_TOKEN_KEY);
-        localStorage.removeItem(LS_USER_KEY);
-        return;
+        const res = await getSessionApi();
+        const data = await res.json().catch(() => null);
+
+        if (!res.ok || !data?.user) {
+          if (!cancelled) {
+            setToken(null);
+            setUser(null);
+            localStorage.removeItem(LS_USER_KEY);
+          }
+          return;
+        }
+
+        const mappedUser = mapApiUser(data.user);
+        const restoredToken =
+          typeof data?.token === "string" ? data.token.trim() : "";
+
+        if (!restoredToken) {
+          if (!cancelled) {
+            setToken(null);
+            setUser(null);
+            localStorage.removeItem(LS_USER_KEY);
+          }
+          return;
+        }
+
+        if (!cancelled) {
+          setToken(restoredToken);
+          setUser(mappedUser);
+          localStorage.setItem(LS_USER_KEY, JSON.stringify(mappedUser));
+        }
+      } catch (err) {
+        logger.error("Failed to restore auth session:", err);
+        if (!cancelled) {
+          setToken(null);
+          setUser(null);
+          localStorage.removeItem(LS_USER_KEY);
+        }
       }
-
-      setToken(storedToken);
-      setUser(parsedUser);
-    } catch (err) {
-      console.error("Failed to restore auth session:", err);
-      localStorage.removeItem(LS_TOKEN_KEY);
-      localStorage.removeItem(LS_USER_KEY);
     }
+
+    restoreSession();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const saveSession = (nextToken: string, nextUser: User) => {
     setToken(nextToken);
     setUser(nextUser);
-    localStorage.setItem(LS_TOKEN_KEY, nextToken);
     localStorage.setItem(LS_USER_KEY, JSON.stringify(nextUser));
   };
 
@@ -110,27 +146,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const clearSession = () => {
     setUser(null);
     setToken(null);
-    localStorage.removeItem(LS_TOKEN_KEY);
     localStorage.removeItem(LS_USER_KEY);
   };
 
-  // ─────────────────────────────────────────
-  // Socket.IO — Real-time Profile Updates
-  // ─────────────────────────────────────────
+  const hasSocketToken = Boolean(token && token.split(".").length === 3);
 
   useEffect(() => {
-    if (!token || !user?.id) return;
+    if (!hasSocketToken || !token) {
+      setIsSocketConnected(false);
+      setSocket((prev) => {
+        if (prev) prev.disconnect();
+        return null;
+      });
+      return;
+    }
 
-    const socket: Socket = io(API_BASE_URL, {
+    const nextSocket: Socket = io(API_BASE_URL, {
       auth: { token },
       transports: ["websocket"],
     });
 
-    socket.on("connect_error", (err) => {
-      console.error("auth socket connect error:", err.message);
-    });
+    setSocket(nextSocket);
 
-    socket.on("user:updated", (payload: any) => {
+    const onConnect = () => setIsSocketConnected(true);
+    const onDisconnect = () => setIsSocketConnected(false);
+    const onConnectError = (err: Error) => {
+      logger.error("auth socket connect error:", err.message);
+      setIsSocketConnected(false);
+    };
+
+    nextSocket.on("connect", onConnect);
+    nextSocket.on("disconnect", onDisconnect);
+    nextSocket.on("connect_error", onConnectError);
+
+    return () => {
+      nextSocket.off("connect", onConnect);
+      nextSocket.off("disconnect", onDisconnect);
+      nextSocket.off("connect_error", onConnectError);
+      nextSocket.disconnect();
+      setSocket((prev) => (prev === nextSocket ? null : prev));
+      setIsSocketConnected(false);
+    };
+  }, [hasSocketToken, token]);
+
+  useEffect(() => {
+    if (!socket || !user?.id) return;
+
+    const handleUserUpdated = (payload: any) => {
       if (!payload || payload.id !== user.id) return;
 
       const nextUser = mapApiUser({
@@ -153,34 +215,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       toast.success("Your account was updated");
-    });
+    };
 
-    socket.on("user:deleted", (payload: any) => {
+    const handleUserDeleted = (payload: any) => {
       if (!payload || payload.id !== user.id) return;
 
       clearSession();
       toast.error("Your account was removed");
       window.location.replace("/login");
-    });
+    };
+
+    socket.on("user:updated", handleUserUpdated);
+    socket.on("user:deleted", handleUserDeleted);
 
     return () => {
-      socket.disconnect();
+      socket.off("user:updated", handleUserUpdated);
+      socket.off("user:deleted", handleUserDeleted);
     };
-  }, [token, user]);
-
-  // ─────────────────────────────────────────
-  // Login
-  // ─────────────────────────────────────────
+  }, [socket, user]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-        }),
+      const res = await loginApi({
+        email: email.trim(),
+        password,
       });
 
       const data = await res.json().catch(() => null);
@@ -201,15 +259,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast.success(`Welcome back, ${mappedUser.username}!`);
       return true;
     } catch (err) {
-      console.error("login error:", err);
+      logger.error("login error:", err);
       toast.error("Could not log in");
       return false;
     }
   };
-
-  // ─────────────────────────────────────────
-  // Register
-  // ─────────────────────────────────────────
 
   const register = async (
     username: string,
@@ -217,14 +271,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
   ): Promise<boolean> => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: username.trim(),
-          email: email.trim(),
-          password,
-        }),
+      const res = await registerApi({
+        username: username.trim(),
+        email: email.trim(),
+        password,
       });
 
       const data = await res.json().catch(() => null);
@@ -243,15 +293,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return true;
     } catch (err) {
-      console.error("register error:", err);
+      logger.error("register error:", err);
       toast.error("Could not create account");
       return false;
     }
   };
-
-  // ─────────────────────────────────────────
-  // Update Profile
-  // ─────────────────────────────────────────
 
   const updateProfile = async (data: {
     username?: string;
@@ -265,15 +311,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return false;
       }
 
-      const res = await fetch(`${API_BASE_URL}/api/users/me`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(data),
-      });
-
+      const res = await updateProfileApi(token, data);
       const result = await res.json().catch(() => null);
 
       if (!res.ok) {
@@ -287,32 +325,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast.success("Profile updated successfully");
       return true;
     } catch (err) {
-      console.error("updateProfile error:", err);
+      logger.error("updateProfile error:", err);
       toast.error("Could not update profile");
       return false;
     }
   };
 
-  // ─────────────────────────────────────────
-  // Logout
-  // ─────────────────────────────────────────
-
   const logout = () => {
+    const currentToken = token;
     clearSession();
+    void logoutApi(currentToken || undefined).catch((err) => {
+      logger.error("logout error:", err);
+    });
     toast.info("You have been logged out");
   };
 
-  const value = useMemo(
-    () => ({ user, token, login, register, updateProfile, logout }),
-    [user, token],
-  );
+  const value = {
+    user,
+    token,
+    socket,
+    isSocketConnected,
+    login,
+    register,
+    updateProfile,
+    logout,
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
-
-// ─────────────────────────────────────────
-// useAuth Hook
-// ─────────────────────────────────────────
 
 export function useAuth() {
   const context = useContext(AuthContext);

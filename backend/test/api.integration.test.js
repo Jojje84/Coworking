@@ -11,6 +11,8 @@ import { User } from "../src/models/User.js";
 process.env.NODE_ENV = "test";
 process.env.JWT_SECRET = "test-secret";
 
+const requireIntegration = process.env.REQUIRE_INTEGRATION === "1";
+
 const app = createApp();
 let mongoServer;
 let integrationReady = true;
@@ -71,6 +73,13 @@ test.before(async () => {
     integrationReady = false;
     integrationSkipReason =
       err?.message || "mongodb-memory-server is unavailable";
+
+    if (requireIntegration) {
+      throw new Error(
+        `Integration tests are required but setup failed: ${integrationSkipReason}`,
+        { cause: err },
+      );
+    }
   }
 });
 
@@ -407,7 +416,9 @@ test("admin soft delete cancels future bookings and supports restore", async (t)
     .set("Authorization", `Bearer ${adminToken}`);
   assert.equal(adminUsersAfterDelete.status, 200);
   assert.equal(
-    adminUsersAfterDelete.body.some((u) => u._id === victim.id || u.id === victim.id),
+    adminUsersAfterDelete.body.some(
+      (u) => u._id === victim.id || u.id === victim.id,
+    ),
     false,
   );
 
@@ -422,4 +433,87 @@ test("admin soft delete cancels future bookings and supports restore", async (t)
   });
   assert.equal(loginAfterRestore.status, 200);
   assert.ok(loginAfterRestore.body.token);
+});
+
+test("protect middleware blocks /api/users/me without token", async (t) => {
+  if (!integrationReady) {
+    t.skip(integrationSkipReason);
+    return;
+  }
+
+  const res = await request(app).get("/api/users/me");
+
+  assert.equal(res.status, 401);
+  assert.match(String(res.body.message || ""), /token|auth/i);
+});
+
+test("validateObjectIdParam returns 400 for invalid booking id", async (t) => {
+  if (!integrationReady) {
+    t.skip(integrationSkipReason);
+    return;
+  }
+
+  const token = await registerAndLogin();
+
+  const res = await request(app)
+    .put("/api/bookings/not-a-valid-id")
+    .set("Authorization", `Bearer ${token}`)
+    .send({ status: "cancelled" });
+
+  assert.equal(res.status, 400);
+  assert.match(String(res.body.message || ""), /invalid id|invalid/i);
+});
+
+test("authorizePermission blocks admin hard delete without permission", async (t) => {
+  if (!integrationReady) {
+    t.skip(integrationSkipReason);
+    return;
+  }
+
+  const admin = await registerUser("perm_admin");
+  await User.findOneAndUpdate(
+    { email: admin.email },
+    {
+      role: "Admin",
+      permissions: { bookingHardDelete: false },
+    },
+  );
+  const adminToken = await loginWithEmail(admin.email);
+
+  const owner = await registerUser("perm_owner");
+  const ownerToken = await loginWithEmail(owner.email);
+
+  const room = await Room.create({
+    name: "Permission Room",
+    capacity: 5,
+    type: "workspace",
+    description: "",
+    imageUrl: "",
+  });
+
+  const start = new Date(Date.now() + 60 * 60 * 1000);
+  const end = new Date(Date.now() + 2 * 60 * 60 * 1000);
+
+  const createRes = await request(app)
+    .post("/api/bookings")
+    .set("Authorization", `Bearer ${ownerToken}`)
+    .send({
+      roomId: room._id.toString(),
+      startTime: start.toISOString(),
+      endTime: end.toISOString(),
+    });
+
+  assert.equal(createRes.status, 201);
+
+  const cancelRes = await request(app)
+    .delete(`/api/bookings/${createRes.body._id}`)
+    .set("Authorization", `Bearer ${ownerToken}`);
+  assert.equal(cancelRes.status, 200);
+
+  const hardDeleteRes = await request(app)
+    .delete(`/api/bookings/${createRes.body._id}/hard`)
+    .set("Authorization", `Bearer ${adminToken}`)
+    .send({ confirmText: "DELETE" });
+
+  assert.equal(hardDeleteRes.status, 403);
 });

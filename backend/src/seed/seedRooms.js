@@ -5,6 +5,7 @@
 import dotenv from "dotenv";
 import { connectDB } from "../config/db.js";
 import { Room } from "../models/Room.js";
+import { logger } from "../utils/logger.js";
 
 dotenv.config();
 
@@ -55,12 +56,12 @@ async function seed() {
   await connectDB();
   await Room.deleteMany({});
   const created = await Room.insertMany(rooms);
-  console.log("✅ Seeded rooms:");
-  created.forEach((r) => console.log(r._id.toString(), r.name));
+  logger.info("✅ Seeded rooms:");
+  created.forEach((r) => logger.info(r._id.toString(), r.name));
   process.exit(0);
 }
 
 seed().catch((e) => {
-  console.error(e);
+  logger.error(e);
   process.exit(1);
 });

@@ -3,7 +3,8 @@
 // ─────────────────────────────────────────
 
 import express from "express";
-import { register, login } from "../controllers/authController.js";
+import { register, login, me, logout } from "../controllers/authController.js";
+import { requireAuth } from "../middleware/auth.js";
 
 const router = express.Router();
 
@@ -65,5 +66,7 @@ router.post("/register", register);
  *         description: Invalid credentials
  */
 router.post("/login", login);
+router.get("/me", requireAuth, me);
+router.post("/logout", requireAuth, logout);
 
 export default router;

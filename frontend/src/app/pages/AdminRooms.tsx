@@ -3,12 +3,11 @@
 // ─────────────────────────────────────────
 
 import React, { useMemo, useState } from "react";
-import { useData } from "../context/DataContext";
+import { useRooms } from "../context/RoomsContext";
 import { Layout } from "../components/Layout";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
   Plus,
-  Pencil,
   Trash2,
   X,
   Users,
@@ -19,6 +18,7 @@ import {
   Building2,
 } from "lucide-react";
 import { Room, RoomType } from "../types";
+import { RoomTable } from "../components/rooms/RoomTable";
 
 type RoomFormData = {
   name: string;
@@ -87,7 +87,10 @@ function RoomDialog({
     >
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[95vw] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+        <Dialog.Content
+          aria-describedby={undefined}
+          className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[95vw] max-w-xl -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
+        >
           <div className="mb-5 flex items-center justify-between">
             <div>
               <Dialog.Title className="text-xl font-semibold text-gray-900">
@@ -212,7 +215,7 @@ function RoomDialog({
 }
 
 export function AdminRooms() {
-  const { rooms, addRoom, updateRoom, deleteRoom } = useData();
+  const { rooms, addRoom, updateRoom, deleteRoom } = useRooms();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
@@ -420,86 +423,11 @@ export function AdminRooms() {
           />
         </div>
 
-        {rooms.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-12 text-center shadow-sm">
-            <DoorOpen className="mx-auto mb-4 h-16 w-16 text-gray-400" />
-            <p className="text-lg font-semibold text-gray-700">
-              No rooms in the system yet
-            </p>
-            <p className="mt-2 text-sm text-gray-500">
-              Click “Add room” to create your first room.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {sortedRooms.map((room) => (
-              <div
-                key={room.id}
-                className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <img
-                  src={room.imageUrl}
-                  alt={room.name}
-                  className="h-52 w-full object-cover"
-                />
-
-                <div className="p-6">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-900">
-                        {room.name}
-                      </h3>
-                      <p className="mt-2 text-sm text-gray-600">
-                        {room.description}
-                      </p>
-                    </div>
-
-                    <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
-                      {room.type === "workspace" ? "Workspace" : "Conference"}
-                    </span>
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-700">
-                    <div className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-3 py-1.5">
-                      <Users className="h-4 w-4" />
-                      <span>
-                        {room.capacity}{" "}
-                        {room.capacity === 1 ? "person" : "people"}
-                      </span>
-                    </div>
-
-                    <div className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-3 py-1.5">
-                      <MapPin className="h-4 w-4" />
-                      <span>
-                        {room.type === "workspace"
-                          ? "Workspace"
-                          : "Conference room"}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 flex gap-2">
-                    <button
-                      onClick={() => handleEdit(room)}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-blue-50 px-4 py-2.5 font-medium text-blue-700 transition-colors hover:bg-blue-100"
-                    >
-                      <Pencil className="h-4 w-4" />
-                      Edit
-                    </button>
-
-                    <button
-                      onClick={() => setDeletingRoom(room)}
-                      className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-red-50 px-4 py-2.5 font-medium text-red-700 transition-colors hover:bg-red-100"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <RoomTable
+          rooms={sortedRooms}
+          onEdit={handleEdit}
+          onDelete={(room) => setDeletingRoom(room)}
+        />
       </div>
 
       <RoomDialog
@@ -536,7 +464,10 @@ export function AdminRooms() {
       >
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-6 shadow-2xl">
+          <Dialog.Content
+            aria-describedby={undefined}
+            className="fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-6 shadow-2xl"
+          >
             <div className="flex items-start gap-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
                 <Trash2 className="h-5 w-5" />

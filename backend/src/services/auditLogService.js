@@ -1,4 +1,5 @@
 import { AuditLog } from "../models/AuditLog.js";
+import { logger } from "../utils/logger.js";
 
 function toAuditLogResponse(log) {
   return {
@@ -61,7 +62,10 @@ export async function recordAuditLog({
 
   const io = req?.app?.get?.("io");
   if (io) {
-    const populated = await createdLog.populate("actorId", "username email role");
+    const populated = await createdLog.populate(
+      "actorId",
+      "username email role",
+    );
     io.to("admins").emit("audit:created", toAuditLogResponse(populated));
   }
 }
@@ -70,6 +74,6 @@ export async function safeRecordAuditLog(payload) {
   try {
     await recordAuditLog(payload);
   } catch (err) {
-    console.error("audit log write failed:", err);
+    logger.error("audit log write failed:", err);
   }
 }

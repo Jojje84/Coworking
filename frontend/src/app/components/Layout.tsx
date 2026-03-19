@@ -21,11 +21,11 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { ProfileModal } from "./ProfileModal";
-import { useData } from "../context/DataContext";
+import { useSettings } from "../context/SettingsContext";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
-  const { adminAnnouncement, userAnnouncement } = useData();
+  const { adminAnnouncement, userAnnouncement } = useSettings();
   const navigate = useNavigate();
   const location = useLocation();
 

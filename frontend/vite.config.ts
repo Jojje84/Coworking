@@ -17,6 +17,40 @@ export default defineConfig({
     },
   },
 
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return;
+
+          if (
+            id.includes("socket.io-client") ||
+            id.includes("engine.io-client")
+          ) {
+            return "socket-vendor";
+          }
+
+          if (id.includes("date-fns")) {
+            return "date-vendor";
+          }
+
+          if (
+            id.includes("@radix-ui") ||
+            id.includes("class-variance-authority") ||
+            id.includes("clsx") ||
+            id.includes("tailwind-merge")
+          ) {
+            return "ui-vendor";
+          }
+
+          if (id.includes("lucide-react")) {
+            return "icons-vendor";
+          }
+        },
+      },
+    },
+  },
+
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ["**/*.svg", "**/*.csv"],
 });

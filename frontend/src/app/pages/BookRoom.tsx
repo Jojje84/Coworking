@@ -4,7 +4,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { useData } from "../context/DataContext";
+import { useRooms } from "../context/RoomsContext";
+import { useBookings } from "../context/BookingsContext";
 import { Layout } from "../components/Layout";
 import { useNavigate } from "react-router";
 import {
@@ -22,71 +23,20 @@ import {
   subMonths,
 } from "date-fns";
 import {
-  Users,
-  MapPin,
-  Search,
-  Calendar,
-  Clock,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
   CheckCircle2,
   AlertCircle,
-  DoorOpen,
 } from "lucide-react";
 import { RoomType } from "../types";
-
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:5000";
-
-function toDateKey(date: Date) {
-  return format(date, "yyyy-MM-dd");
-}
-
-function toTimeLabel(iso: string) {
-  return format(new Date(iso), "HH:mm");
-}
-
-function getOrderedTimes(startIso: string, endIso: string) {
-  const startDate = new Date(startIso);
-  const endDate = new Date(endIso);
-
-  if (startDate <= endDate) {
-    return {
-      start: toTimeLabel(startIso),
-      end: toTimeLabel(endIso),
-    };
-  }
-
-  return {
-    start: toTimeLabel(endIso),
-    end: toTimeLabel(startIso),
-  };
-}
-
-function formatForDateTimeLocal(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-
-  return `${year}-${month}-${day}T${hours}:${minutes}`;
-}
-
-function getDefaultBookingTimes() {
-  const now = new Date();
-  now.setMinutes(now.getMinutes() + 5);
-  now.setSeconds(0);
-  now.setMilliseconds(0);
-
-  const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
-
-  return {
-    start: formatForDateTimeLocal(now),
-    end: formatForDateTimeLocal(oneHourLater),
-  };
-}
+import { checkBookingAvailabilityApi } from "../../api/bookingsApi";
+import { getDefaultBookingTimes, toDateKey } from "../../utils/date";
+import { getOrderedTimes } from "../../utils/format";
+import { logger } from "../../utils/logger";
+import { RoomSelectionGrid } from "../components/bookings/RoomSelectionGrid";
+import { BookingDetailsPanel } from "../components/bookings/BookingDetailsPanel";
 
 type NoticeState = {
   type: "success" | "error" | "info";
@@ -95,8 +45,8 @@ type NoticeState = {
 
 export function BookRoom() {
   const { user, token } = useAuth();
-  const { rooms, calendarBookings, loadCalendarBookings, addBooking } =
-    useData();
+  const { rooms } = useRooms();
+  const { calendarBookings, loadCalendarBookings, addBooking } = useBookings();
   const navigate = useNavigate();
 
   const today = startOfDay(new Date());
@@ -119,19 +69,6 @@ export function BookRoom() {
 
     loadCalendarBookings(monthStart.toISOString(), monthEnd.toISOString());
   }, [currentMonth, loadCalendarBookings]);
-
-  const filteredRooms = rooms
-    .filter((room) => {
-      const matchesSearch = room.name
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase());
-      const matchesType = filterType === "all" || room.type === filterType;
-      const matchesCapacity =
-        filterCapacity === 0 || room.capacity >= filterCapacity;
-
-      return matchesSearch && matchesType && matchesCapacity;
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
 
   const selectedRoomData = rooms.find((r) => r.id === selectedRoom);
 
@@ -282,7 +219,7 @@ export function BookRoom() {
         });
       }
     } catch (error) {
-      console.error("handleBooking error:", error);
+      logger.error("handleBooking error:", error);
       setNotice({
         type: "error",
         message: "Something went wrong while creating the booking.",
@@ -300,17 +237,11 @@ export function BookRoom() {
     try {
       setIsCheckingAvailability(true);
 
-      const params = new URLSearchParams({
-        roomId: selectedRoom,
-        startTime: new Date(startTime).toISOString(),
-        endTime: new Date(endTime).toISOString(),
-      });
-
-      const res = await fetch(
-        `${API_BASE_URL}/api/bookings/availability?${params.toString()}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        },
+      const res = await checkBookingAvailabilityApi(
+        token!,
+        selectedRoom,
+        new Date(startTime).toISOString(),
+        new Date(endTime).toISOString(),
       );
 
       if (!res.ok) {
@@ -335,7 +266,7 @@ export function BookRoom() {
         });
       }
     } catch (err) {
-      console.error("checkAvailability error:", err);
+      logger.error("checkAvailability error:", err);
       setNotice({
         type: "error",
         message: "Could not check room availability.",
@@ -378,147 +309,25 @@ export function BookRoom() {
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
-            <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-              <div className="mb-5">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Search and filter
-                </h2>
-                <p className="mt-1 text-sm text-gray-500">
-                  Find the right room by name, type and capacity.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Search room
-                  </label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search for room..."
-                      className="w-full rounded-xl border border-gray-300 py-2.5 pl-10 pr-4 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Room type
-                  </label>
-                  <select
-                    value={filterType}
-                    onChange={(e) =>
-                      setFilterType(e.target.value as RoomType | "all")
-                    }
-                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  >
-                    <option value="all">All types</option>
-                    <option value="workspace">Workspace</option>
-                    <option value="conference">Conference room</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Min. capacity
-                  </label>
-                  <select
-                    value={filterCapacity}
-                    onChange={(e) => setFilterCapacity(Number(e.target.value))}
-                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  >
-                    <option value="0">All</option>
-                    <option value="1">1+</option>
-                    <option value="4">4+</option>
-                    <option value="8">8+</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-              {filteredRooms.map((room) => (
-                <button
-                  key={room.id}
-                  type="button"
-                  onClick={() => {
-                    const { start, end } = getDefaultBookingTimes();
-
-                    setSelectedRoom(room.id);
-                    setStartTime(start);
-                    setEndTime(end);
-                    setSelectedDate(startOfDay(new Date(start)));
-                    setCurrentMonth(startOfMonth(new Date(start)));
-                    setNotice(null);
-                  }}
-                  className={`overflow-hidden rounded-2xl border bg-white text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${
-                    selectedRoom === room.id
-                      ? "border-blue-600 ring-2 ring-blue-100"
-                      : "border-gray-100"
-                  }`}
-                >
-                  <img
-                    src={room.imageUrl}
-                    alt={room.name}
-                    className="h-48 w-full object-cover"
-                  />
-
-                  <div className="p-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          {room.name}
-                        </h3>
-                        <p className="mt-1 text-sm text-gray-600">
-                          {room.description}
-                        </p>
-                      </div>
-
-                      {selectedRoom === room.id && (
-                        <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
-                          Selected
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-gray-700">
-                      <div className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-3 py-1.5">
-                        <Users className="h-4 w-4" />
-                        <span>
-                          {room.capacity}{" "}
-                          {room.capacity === 1 ? "person" : "persons"}
-                        </span>
-                      </div>
-
-                      <div className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-3 py-1.5">
-                        <MapPin className="h-4 w-4" />
-                        <span>
-                          {room.type === "workspace"
-                            ? "Workspace"
-                            : "Conference room"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            {filteredRooms.length === 0 && (
-              <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-12 text-center shadow-sm">
-                <Search className="mx-auto mb-4 h-14 w-14 text-gray-400" />
-                <p className="text-lg font-medium text-gray-700">
-                  No rooms match your filters
-                </p>
-                <p className="mt-1 text-sm text-gray-500">
-                  Try adjusting your search, type or capacity.
-                </p>
-              </div>
-            )}
+            <RoomSelectionGrid
+              rooms={rooms}
+              selectedRoomId={selectedRoom}
+              searchQuery={searchQuery}
+              filterType={filterType}
+              filterCapacity={filterCapacity}
+              onSearchQueryChange={setSearchQuery}
+              onFilterTypeChange={setFilterType}
+              onFilterCapacityChange={setFilterCapacity}
+              onSelectRoom={(room) => {
+                const { start, end } = getDefaultBookingTimes();
+                setSelectedRoom(room.id);
+                setStartTime(start);
+                setEndTime(end);
+                setSelectedDate(startOfDay(new Date(start)));
+                setCurrentMonth(startOfMonth(new Date(start)));
+                setNotice(null);
+              }}
+            />
           </div>
 
           <div className="space-y-6">
@@ -712,93 +521,21 @@ export function BookRoom() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
-              <h2 className="mb-4 text-xl font-semibold text-gray-900">
-                Booking details
-              </h2>
-
-              {selectedRoom ? (
-                <div className="space-y-4">
-                  <div className="rounded-2xl bg-blue-50 p-4">
-                    <p className="text-sm font-medium text-blue-900">
-                      Selected room
-                    </p>
-                    <p className="mt-1 text-lg font-semibold text-blue-900">
-                      {selectedRoomData?.name}
-                    </p>
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
-                      <Calendar className="mr-1 inline h-4 w-4" />
-                      Start time
-                    </label>
-                    <input
-                      type="datetime-local"
-                      value={startTime}
-                      onChange={(e) => {
-                        const nextStart = e.target.value;
-                        setStartTime(nextStart);
-
-                        if (nextStart) {
-                          const nextEndDate = new Date(nextStart);
-                          nextEndDate.setHours(nextEndDate.getHours() + 1);
-                          setEndTime(formatForDateTimeLocal(nextEndDate));
-                          setSelectedDate(startOfDay(new Date(nextStart)));
-                          setCurrentMonth(startOfMonth(new Date(nextStart)));
-                        }
-                      }}
-                      min={format(selectedDate, "yyyy-MM-dd'T'00:00")}
-                      className="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700">
-                      <Clock className="mr-1 inline h-4 w-4" />
-                      End time
-                    </label>
-                    <input
-                      type="datetime-local"
-                      value={endTime}
-                      onChange={(e) => setEndTime(e.target.value)}
-                      min={
-                        startTime || format(selectedDate, "yyyy-MM-dd'T'00:00")
-                      }
-                      className="w-full rounded-xl border border-gray-300 px-4 py-2.5 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                    />
-                  </div>
-
-                  <button
-                    onClick={checkAvailability}
-                    disabled={isCheckingAvailability}
-                    className="w-full rounded-xl border border-blue-600 px-4 py-2.5 font-medium text-blue-600 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isCheckingAvailability
-                      ? "Checking availability..."
-                      : "Check availability"}
-                  </button>
-
-                  <button
-                    onClick={handleBooking}
-                    disabled={isSubmitting}
-                    className="w-full rounded-xl bg-blue-600 px-4 py-3 font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isSubmitting ? "Creating booking..." : "Confirm booking"}
-                  </button>
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 py-10 text-center">
-                  <DoorOpen className="mx-auto mb-3 h-12 w-12 text-gray-400" />
-                  <p className="font-medium text-gray-700">
-                    Select a room to start
-                  </p>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Then choose a time and create your booking.
-                  </p>
-                </div>
-              )}
-            </div>
+            <BookingDetailsPanel
+              selectedRoomId={selectedRoom}
+              selectedRoom={selectedRoomData}
+              selectedDate={selectedDate}
+              startTime={startTime}
+              endTime={endTime}
+              isCheckingAvailability={isCheckingAvailability}
+              isSubmitting={isSubmitting}
+              onStartTimeChange={setStartTime}
+              onEndTimeChange={setEndTime}
+              onSelectedDateChange={setSelectedDate}
+              onCurrentMonthChange={setCurrentMonth}
+              onCheckAvailability={checkAvailability}
+              onConfirmBooking={handleBooking}
+            />
           </div>
         </div>
       </div>

@@ -1,151 +1,24 @@
-import { Booking } from "../models/Booking.js";
-import { Room } from "../models/Room.js";
-import { AppError } from "../utils/AppError.js";
+import { AppError } from "../utils/appError.js";
 import { isValidObjectId } from "../utils/validation.js";
-import { getUserDeleteGraceDays } from "../config/env.js";
-import { safeRecordAuditLog } from "../services/auditLogService.js";
-
-// ─────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────
-
-function toPlainBooking(doc) {
-  if (!doc) return null;
-  return typeof doc.toObject === "function" ? doc.toObject() : doc;
-}
+import {
+  syncCompletedBookings,
+  sanitizeCalendarBooking,
+  createBookingWithAudit,
+  updateBookingWithAudit,
+  cancelBookingWithAudit,
+  hardDeleteBookingWithAudit,
+  hasBookingConflict,
+  purgeExpiredBookingsService,
+} from "../services/bookingService.js";
+import { Booking } from "../models/Booking.js";
+import { logger } from "../utils/logger.js";
 
 function getCurrentUserId(req) {
   return req.user?.id || req.user?._id || null;
 }
 
 function isAdminRole(role) {
-  return role === "Admin" || role === "admin";
-}
-
-function getPayloadUserId(payload) {
-  if (!payload?.userId) return null;
-
-  if (typeof payload.userId === "object") {
-    return (
-      payload.userId._id?.toString?.() ||
-      payload.userId.id?.toString?.() ||
-      null
-    );
-  }
-
-  return payload.userId.toString();
-}
-
-function emitBookingEvent(req, event, payload) {
-  const io = req.app.get("io");
-  if (!io || !payload) return;
-
-  const plain = toPlainBooking(payload);
-  const ownerId = getPayloadUserId(plain);
-
-  if (ownerId) {
-    io.to(ownerId).emit(event, plain);
-  }
-
-  io.to("admins").emit(event, plain);
-}
-
-function emitCalendarChanged(req) {
-  const io = req.app.get("io");
-  if (!io) return;
-
-  io.emit("calendar:changed", {
-    updatedAt: new Date().toISOString(),
-  });
-}
-
-async function syncCompletedBookings() {
-  await Booking.updateMany(
-    {
-      status: "active",
-      endTime: { $lt: new Date() },
-    },
-    {
-      $set: { status: "completed" },
-    },
-  );
-}
-
-function resolveBookingStatus({ status, endTime }) {
-  if (status === "cancelled") return "cancelled";
-  return new Date(endTime) < new Date() ? "completed" : "active";
-}
-
-function toBookingAuditSnapshot(booking) {
-  if (!booking) return null;
-
-  const source =
-    typeof booking.toObject === "function" ? booking.toObject() : booking;
-
-  const id = source.id || source._id;
-  const roomId = source.roomId?._id || source.roomId;
-  const userId = source.userId?._id || source.userId;
-
-  return {
-    id: id ? id.toString() : null,
-    userId: userId ? userId.toString() : null,
-    roomId: roomId ? roomId.toString() : null,
-    startTime: source.startTime ? new Date(source.startTime).toISOString() : null,
-    endTime: source.endTime ? new Date(source.endTime).toISOString() : null,
-    status: source.status || "active",
-    cancelledAt: source.cancelledAt
-      ? new Date(source.cancelledAt).toISOString()
-      : null,
-  };
-}
-
-function getChangedAuditFields(previousSnapshot, nextSnapshot) {
-  if (!previousSnapshot || !nextSnapshot) return [];
-
-  const fields = Array.from(
-    new Set([
-      ...Object.keys(previousSnapshot),
-      ...Object.keys(nextSnapshot),
-    ]),
-  );
-
-  return fields.filter(
-    (field) =>
-      JSON.stringify(previousSnapshot[field]) !==
-      JSON.stringify(nextSnapshot[field]),
-  );
-}
-
-function getRetentionCutoff(now = new Date()) {
-  const graceDays = getUserDeleteGraceDays();
-  const cutoff = new Date(now);
-  cutoff.setDate(cutoff.getDate() - graceDays);
-  return cutoff;
-}
-
-async function findPopulatedBooking(id, includeUser = true) {
-  let query = Booking.findById(id).populate("roomId", "name capacity type");
-
-  if (includeUser) {
-    query = query.populate("userId", "username email role");
-  }
-
-  return query;
-}
-
-function sanitizeCalendarBooking(booking, currentUserId) {
-  return {
-    id: booking._id,
-    roomId: booking.roomId?._id || null,
-    roomName: booking.roomId?.name || "Unknown room",
-    startTime: booking.startTime,
-    endTime: booking.endTime,
-    status: booking.status,
-    isMine:
-      !!currentUserId &&
-      !!booking.userId &&
-      booking.userId.toString() === currentUserId.toString(),
-  };
+  return String(role || "").toLowerCase() === "admin";
 }
 
 // ─────────────────────────────────────────
@@ -177,7 +50,7 @@ export async function getBookings(req, res, next) {
 
     return res.json(bookings);
   } catch (err) {
-    console.error("getBookings error:", err);
+    logger.error("getBookings error:", err);
     next(err);
   }
 }
@@ -227,7 +100,7 @@ export async function getCalendarBookings(req, res, next) {
 
     return res.json(sanitized);
   } catch (err) {
-    console.error("getCalendarBookings error:", err);
+    logger.error("getCalendarBookings error:", err);
     next(err);
   }
 }
@@ -265,22 +138,16 @@ export async function checkAvailability(req, res, next) {
       return next(new AppError("Invalid time range", 400));
     }
 
-    const filter = {
+    const conflict = await hasBookingConflict({
       roomId,
-      status: { $ne: "cancelled" },
-      startTime: { $lt: end },
-      endTime: { $gt: start },
-    };
-
-    if (excludeBookingId) {
-      filter._id = { $ne: excludeBookingId };
-    }
-
-    const conflict = await Booking.findOne(filter);
+      start,
+      end,
+      excludeBookingId,
+    });
 
     return res.json({ available: !conflict });
   } catch (err) {
-    console.error("checkAvailability error:", err);
+    logger.error("checkAvailability error:", err);
     next(err);
   }
 }
@@ -293,74 +160,18 @@ export async function createBooking(req, res, next) {
   try {
     await syncCompletedBookings();
 
-    const { roomId, startTime, endTime } = req.body;
-    const userId = getCurrentUserId(req);
+    const userId = req.user?.id || req.user?._id;
 
-    if (!userId) {
-      return next(new AppError("Unauthorized", 401));
-    }
-
-    if (!roomId || !startTime || !endTime) {
-      return next(
-        new AppError("roomId, startTime and endTime are required", 400),
-      );
-    }
-
-    if (!isValidObjectId(roomId)) {
-      return next(new AppError("Invalid roomId", 400));
-    }
-
-    const room = await Room.findById(roomId);
-    if (!room) {
-      return next(new AppError("Room not found", 404));
-    }
-
-    const start = new Date(startTime);
-    const end = new Date(endTime);
-
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-      return next(new AppError("Invalid date format", 400));
-    }
-
-    if (start >= end) {
-      return next(new AppError("startTime must be before endTime", 400));
-    }
-
-    const conflict = await Booking.findOne({
-      roomId,
-      status: { $ne: "cancelled" },
-      startTime: { $lt: end },
-      endTime: { $gt: start },
-    });
-
-    if (conflict) {
-      return next(new AppError("Room is already booked", 409));
-    }
-
-    const booking = await Booking.create({
+    const booking = await createBookingWithAudit({
+      req,
       userId,
-      roomId,
-      startTime: start,
-      endTime: end,
-      status: resolveBookingStatus({ status: "active", endTime: end }),
-      cancelledAt: null,
+      roomId: req.body.roomId,
+      startTime: req.body.startTime,
+      endTime: req.body.endTime,
     });
 
-    const populated = await findPopulatedBooking(booking._id, true);
-    if (!populated) {
-      return next(new AppError("Booking created but could not be loaded", 500));
-    }
-
-    try {
-      emitBookingEvent(req, "booking:created", populated);
-      emitCalendarChanged(req);
-    } catch (socketErr) {
-      console.error("booking:created emit error:", socketErr);
-    }
-
-    return res.status(201).json(populated);
+    return res.status(201).json(booking);
   } catch (err) {
-    console.error("createBooking error:", err);
     next(err);
   }
 }
@@ -374,215 +185,45 @@ export async function updateBooking(req, res, next) {
     await syncCompletedBookings();
 
     const { id } = req.params;
-    const currentUserId = getCurrentUserId(req);
-    const isAdmin = isAdminRole(req.user?.role);
+    const currentUserId = req.user?.id || req.user?._id;
+    const isAdmin = (req.user?.role || "").toLowerCase() === "admin";
 
-    if (!isValidObjectId(id)) {
-      return next(new AppError("Invalid booking id", 400));
-    }
-
-    if (!currentUserId && !isAdmin) {
-      return next(new AppError("Unauthorized", 401));
-    }
-
-    const booking = await Booking.findById(id);
-    if (!booking) {
-      return next(new AppError("Booking not found", 404));
-    }
-
-    const isOwner = currentUserId
-      ? booking.userId.toString() === currentUserId.toString()
-      : false;
-
-    if (!isOwner && !isAdmin) {
-      return next(new AppError("Not allowed", 403));
-    }
-
-    const { roomId, startTime, endTime, status } = req.body;
-    const previousSnapshot = toBookingAuditSnapshot(booking);
-
-    if (roomId !== undefined) {
-      if (!isValidObjectId(roomId)) {
-        return next(new AppError("Invalid roomId", 400));
-      }
-
-      const room = await Room.findById(roomId);
-      if (!room) {
-        return next(new AppError("Room not found", 404));
-      }
-
-      booking.roomId = roomId;
-    }
-
-    if (startTime !== undefined) {
-      booking.startTime = new Date(startTime);
-    }
-
-    if (endTime !== undefined) {
-      booking.endTime = new Date(endTime);
-    }
-
-    if (status !== undefined) {
-      if (!["active", "cancelled", "completed"].includes(status)) {
-        return next(new AppError("Invalid status", 400));
-      }
-      booking.status = status;
-    }
-
-    if (
-      Number.isNaN(booking.startTime.getTime()) ||
-      Number.isNaN(booking.endTime.getTime())
-    ) {
-      return next(new AppError("Invalid date format", 400));
-    }
-
-    if (booking.startTime >= booking.endTime) {
-      return next(new AppError("startTime must be before endTime", 400));
-    }
-
-    const conflict = await Booking.findOne({
-      _id: { $ne: booking._id },
-      roomId: booking.roomId,
-      status: { $ne: "cancelled" },
-      startTime: { $lt: booking.endTime },
-      endTime: { $gt: booking.startTime },
+    const booking = await updateBookingWithAudit({
+      req,
+      bookingId: id,
+      currentUserId,
+      isAdmin,
+      roomId: req.body.roomId,
+      startTime: req.body.startTime,
+      endTime: req.body.endTime,
+      status: req.body.status,
     });
 
-    if (conflict) {
-      return next(new AppError("Room is already booked", 409));
-    }
-
-    if (booking.status !== "cancelled") {
-      booking.status = resolveBookingStatus({
-        status: booking.status,
-        endTime: booking.endTime,
-      });
-    }
-
-    if (booking.status === "cancelled") {
-      if (!booking.cancelledAt) {
-        booking.cancelledAt = new Date();
-      }
-    } else {
-      booking.cancelledAt = null;
-    }
-
-    await booking.save();
-
-    if (isAdmin) {
-      const nextSnapshot = toBookingAuditSnapshot(booking);
-      const changedFields = getChangedAuditFields(previousSnapshot, nextSnapshot);
-
-      if (changedFields.length > 0) {
-        await safeRecordAuditLog({
-          req,
-          action: "booking.updated",
-          targetType: "booking",
-          targetId: booking._id,
-          summary: "Admin updated a booking",
-          metadata: {
-            changedFields,
-            previous: previousSnapshot,
-            next: nextSnapshot,
-          },
-        });
-      }
-    }
-
-    const populated = await findPopulatedBooking(booking._id, true);
-    if (!populated) {
-      return next(new AppError("Updated booking could not be loaded", 500));
-    }
-
-    try {
-      emitBookingEvent(req, "booking:updated", populated);
-      emitCalendarChanged(req);
-    } catch (socketErr) {
-      console.error("booking:updated emit error:", socketErr);
-    }
-
-    return res.json(populated);
+    return res.json(booking);
   } catch (err) {
-    console.error("updateBooking error:", err);
     next(err);
   }
 }
 
 // ─────────────────────────────────────────
-// Delete Booking
+// Delete Booking (Cancel)
 // ─────────────────────────────────────────
 
 export async function deleteBooking(req, res, next) {
   try {
     const { id } = req.params;
-    const currentUserId = getCurrentUserId(req);
-    const isAdmin = isAdminRole(req.user?.role);
+    const currentUserId = req.user?.id || req.user?._id;
+    const isAdmin = (req.user?.role || "").toLowerCase() === "admin";
 
-    if (!isValidObjectId(id)) {
-      return next(new AppError("Invalid booking id", 400));
-    }
+    const booking = await cancelBookingWithAudit({
+      req,
+      bookingId: id,
+      currentUserId,
+      isAdmin,
+    });
 
-    if (!currentUserId && !isAdmin) {
-      return next(new AppError("Unauthorized", 401));
-    }
-
-    const booking = await Booking.findById(id);
-    if (!booking) {
-      return next(new AppError("Booking not found", 404));
-    }
-
-    const isOwner = currentUserId
-      ? booking.userId.toString() === currentUserId.toString()
-      : false;
-
-    if (!isOwner && !isAdmin) {
-      return next(new AppError("Not allowed", 403));
-    }
-
-    if (booking.status === "completed") {
-      return next(new AppError("Completed bookings cannot be cancelled", 400));
-    }
-
-    if (booking.status !== "cancelled") {
-      const previousSnapshot = toBookingAuditSnapshot(booking);
-
-      booking.status = "cancelled";
-      booking.cancelledAt = new Date();
-      await booking.save();
-
-      if (isAdmin) {
-        const nextSnapshot = toBookingAuditSnapshot(booking);
-
-        await safeRecordAuditLog({
-          req,
-          action: "booking.cancelled",
-          targetType: "booking",
-          targetId: booking._id,
-          summary: "Admin cancelled a booking",
-          metadata: {
-            changedFields: getChangedAuditFields(previousSnapshot, nextSnapshot),
-            previous: previousSnapshot,
-            next: nextSnapshot,
-          },
-        });
-      }
-    }
-
-    const populated = await findPopulatedBooking(booking._id, true);
-    if (!populated) {
-      return next(new AppError("Updated booking could not be loaded", 500));
-    }
-
-    try {
-      emitBookingEvent(req, "booking:updated", populated);
-      emitCalendarChanged(req);
-    } catch (socketErr) {
-      console.error("booking:cancelled emit error:", socketErr);
-    }
-
-    return res.json(populated);
+    return res.json(booking);
   } catch (err) {
-    console.error("deleteBooking error:", err);
     next(err);
   }
 }
@@ -593,88 +234,31 @@ export async function deleteBooking(req, res, next) {
 
 export async function hardDeleteBooking(req, res, next) {
   try {
-    const { id } = req.params;
+    const isAdmin = (req.user?.role || "").toLowerCase() === "admin";
     const confirmText = String(req.body?.confirmText || "").trim();
 
-    if (!isValidObjectId(id)) {
-      return next(new AppError("Invalid booking id", 400));
-    }
+    const { id } = req.params;
 
     if (confirmText !== "DELETE") {
-      return next(
-        new AppError("Hard delete requires confirmText=DELETE", 400),
-      );
+      return next(new AppError("Hard delete requires confirmText=DELETE", 400));
     }
 
-    const booking = await Booking.findById(id);
-    if (!booking) {
-      return next(new AppError("Booking not found", 404));
-    }
-
-    if (booking.status === "active") {
-      return next(
-        new AppError("Active bookings must be cancelled before hard delete", 400),
-      );
-    }
-
-    const deletedPayload = {
-      id: booking._id.toString(),
-      userId: booking.userId.toString(),
-      roomId: booking.roomId.toString(),
-    };
-
-    await Booking.findByIdAndDelete(id);
-
-    await safeRecordAuditLog({
+    await hardDeleteBookingWithAudit({
       req,
-      action: "booking.hard_deleted",
-      targetType: "booking",
-      targetId: id,
-      summary: "Booking permanently deleted",
-      metadata: {
-        userId: deletedPayload.userId,
-        roomId: deletedPayload.roomId,
-      },
+      bookingId: id,
+      isAdmin,
     });
-
-    try {
-      emitBookingEvent(req, "booking:deleted", deletedPayload);
-      emitCalendarChanged(req);
-    } catch (socketErr) {
-      console.error("booking:hard-deleted emit error:", socketErr);
-    }
 
     return res.json({ ok: true });
   } catch (err) {
-    console.error("hardDeleteBooking error:", err);
     next(err);
   }
 }
 
 // ─────────────────────────────────────────
-// Purge Expired Bookings (Job)
+// Background Purge (Server Job)
 // ─────────────────────────────────────────
 
 export async function purgeExpiredBookings(now = new Date()) {
-  const cutoff = getRetentionCutoff(now);
-
-  const result = await Booking.deleteMany({
-    $or: [
-      {
-        status: "cancelled",
-        cancelledAt: { $ne: null, $lte: cutoff },
-      },
-      {
-        status: "cancelled",
-        cancelledAt: null,
-        updatedAt: { $lte: cutoff },
-      },
-      {
-        status: "completed",
-        endTime: { $lte: cutoff },
-      },
-    ],
-  });
-
-  return { purgedBookings: result.deletedCount || 0 };
+  return purgeExpiredBookingsService(now);
 }

@@ -3,9 +3,9 @@
 // ─────────────────────────────────────────
 
 import express from "express";
-import { requireAuth } from "../middleware/auth.js";
-import { requireAdmin } from "../middleware/admin.js";
-import { requirePermission } from "../middleware/permissions.js";
+import { protect } from "../middleware/protect.js";
+import { authorize, authorizePermission } from "../middleware/authorize.js";
+import { validateObjectIdParam } from "../middleware/validate.js";
 import {
   getUsers,
   createUser,
@@ -54,7 +54,7 @@ const router = express.Router();
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get("/me", requireAuth, getMe);
+router.get("/me", protect, getMe);
 
 /**
  * @swagger
@@ -103,7 +103,7 @@ router.get("/me", requireAuth, getMe);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.patch("/me", requireAuth, updateMe);
+router.patch("/me", protect, updateMe);
 
 /**
  * @swagger
@@ -136,7 +136,7 @@ router.patch("/me", requireAuth, updateMe);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get("/", requireAuth, requireAdmin, getUsers);
+router.get("/", protect, authorize("admin"), getUsers);
 
 /**
  * @swagger
@@ -184,7 +184,7 @@ router.get("/", requireAuth, requireAdmin, getUsers);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post("/", requireAuth, requireAdmin, createUser);
+router.post("/", protect, authorize("admin"), createUser);
 
 /**
  * @swagger
@@ -245,7 +245,13 @@ router.post("/", requireAuth, requireAdmin, createUser);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.patch("/:id", requireAuth, requireAdmin, updateUser);
+router.patch(
+  "/:id",
+  protect,
+  authorize("admin"),
+  validateObjectIdParam("id"),
+  updateUser,
+);
 
 /**
  * @swagger
@@ -295,7 +301,13 @@ router.patch("/:id", requireAuth, requireAdmin, updateUser);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.delete("/:id", requireAuth, requireAdmin, deleteUser);
+router.delete(
+  "/:id",
+  protect,
+  authorize("admin"),
+  validateObjectIdParam("id"),
+  deleteUser,
+);
 
 /**
  * @swagger
@@ -351,7 +363,13 @@ router.delete("/:id", requireAuth, requireAdmin, deleteUser);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.post("/:id/restore", requireAuth, requireAdmin, restoreUser);
+router.post(
+  "/:id/restore",
+  protect,
+  authorize("admin"),
+  validateObjectIdParam("id"),
+  restoreUser,
+);
 
 /**
  * @swagger
@@ -408,9 +426,10 @@ router.post("/:id/restore", requireAuth, requireAdmin, restoreUser);
  */
 router.delete(
   "/:id/hard",
-  requireAuth,
-  requireAdmin,
-  requirePermission("userHardDelete"),
+  protect,
+  authorize("admin"),
+  validateObjectIdParam("id"),
+  authorizePermission("userHardDelete"),
   hardDeleteUser,
 );
 

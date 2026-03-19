@@ -1,4 +1,5 @@
 import Redis from "ioredis";
+import { logger } from "../utils/logger.js";
 
 // ─────────────────────────────────────────
 // Redis Connection
@@ -15,8 +16,8 @@ export function getRedis() {
     enableReadyCheck: true,
   });
 
-  redis.on("error", (e) => console.error("❌ Redis error:", e.message));
-  redis.on("connect", () => console.log("✅ Redis connected"));
+  redis.on("error", (e) => logger.error("❌ Redis error:", e.message));
+  redis.on("connect", () => logger.info("✅ Redis connected"));
 
   return redis;
 }

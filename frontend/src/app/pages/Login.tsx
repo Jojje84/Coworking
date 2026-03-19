@@ -165,22 +165,29 @@ export function Login() {
             </p>
           </div>
 
-          <div className="mt-6 rounded-2xl border border-blue-100 bg-blue-50 p-4">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-900">
-              Demo logins
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <h3 className="text-sm font-semibold text-slate-800">
+              Demo accounts
+            </h3>
+            <p className="mt-1 text-sm text-slate-600">
+              Use these accounts to test different roles in the application.
             </p>
-            <div className="space-y-2 text-sm text-blue-800">
-              <div className="rounded-xl bg-white/70 px-3 py-2">
-                <span className="font-semibold">Admin:</span> admin@cowork.se /
-                Password123!
+            <div className="mt-3 space-y-2 text-sm">
+              <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2 border">
+                <span className="font-medium">Superadmin:</span>
+                <span>admin@cowork.se / Password123!</span>
               </div>
-              <div className="rounded-xl bg-white/70 px-3 py-2">
-                <span className="font-semibold">User:</span> user@cowork.se /
-                Password123!
+              <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2 border">
+                <span className="font-medium">Admin1:</span>
+                <span>admin1@cowork.se / Password123!</span>
               </div>
-              <div className="rounded-xl bg-white/70 px-3 py-2">
-                <span className="font-semibold">User:</span> maria@cowork.se /
-                Password123!
+              <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2 border">
+                <span className="font-medium">User</span>
+                <span>user@cowork.se / Password123!</span>
+              </div>
+              <div className="flex items-center justify-between rounded-lg bg-white px-3 py-2 border">
+                <span className="font-medium">User 2</span>
+                <span>maria@cowork.se / Password123!</span>
               </div>
             </div>
           </div>
