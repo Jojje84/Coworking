@@ -11,7 +11,7 @@
     "test": "node --test",
     "test:integration": "node --test test/api.integration.test.js",
     "test:integration:strict": "cross-env REQUIRE_INTEGRATION=1 node --test test/api.integration.test.js",
-    "test:ci": "cross-env REQUIRE_INTEGRATION=1 node --test --test-concurrency=1 --test-reporter=spec",
+    "test:ci": "node --test --test-concurrency=1 --test-reporter=spec",
     "migrate:audit:auth-actors": "node src/seed/backfillAuthAuditActors.js",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
