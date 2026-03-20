@@ -52,6 +52,19 @@ set REQUIRE_INTEGRATION=1 && npm run test:ci
 
 In CI, `REQUIRE_INTEGRATION=1` is enabled by default.
 
+### Local CI preflight (before push)
+
+Run the same quality gates as CI from the project root:
+
+```bash
+npm run ci:local
+```
+
+This runs:
+
+- backend: format check + test:ci
+- frontend: format check + typecheck + build
+
 ### Safe project zip
 
 To create a safe project zip (tracked files only, no local secrets):
