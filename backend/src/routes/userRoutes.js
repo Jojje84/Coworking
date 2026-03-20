@@ -34,6 +34,7 @@ const router = express.Router();
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     responses:
  *       200:
  *         description: Current user profile
@@ -65,6 +66,7 @@ router.get("/me", protect, getMe);
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -114,6 +116,14 @@ router.patch("/me", protect, updateMe);
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: includeDeleted
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: Include soft-deleted users in the response when true.
  *     responses:
  *       200:
  *         description: List of users
@@ -146,6 +156,7 @@ router.get("/", protect, authorize("admin"), getUsers);
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -194,6 +205,7 @@ router.post("/", protect, authorize("admin"), createUser);
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -262,6 +274,7 @@ router.patch(
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -318,6 +331,7 @@ router.delete(
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -380,6 +394,7 @@ router.post(
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id

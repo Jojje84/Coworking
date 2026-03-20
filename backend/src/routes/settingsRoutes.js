@@ -23,6 +23,7 @@ const router = express.Router();
  *     tags: [Settings]
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     responses:
  *       200:
  *         description: Settings loaded
@@ -41,6 +42,7 @@ router.get("/", protect, getSettings);
  *     tags: [Settings]
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     requestBody:
  *       required: true
  *       content:

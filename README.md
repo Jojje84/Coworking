@@ -50,7 +50,7 @@ cd backend
 set REQUIRE_INTEGRATION=1 && npm run test:ci
 ```
 
-In CI, `REQUIRE_INTEGRATION=1` is enabled by default.
+CI runs `npm run test:ci` without forcing `REQUIRE_INTEGRATION=1`.
 
 ### Local CI preflight (before push)
 
@@ -201,10 +201,12 @@ Live Swagger docs: `https://coworking-backend-9ngl.onrender.com/api/docs/`
 
 ### Authentication
 
-| Method | Endpoint             | Description                    |
-| ------ | -------------------- | ------------------------------ |
-| POST   | `/api/auth/register` | Register a new user            |
-| POST   | `/api/auth/login`    | Log in and receive a JWT token |
+| Method | Endpoint             | Description                                           |
+| ------ | -------------------- | ----------------------------------------------------- |
+| POST   | `/api/auth/register` | Register a new user                                   |
+| POST   | `/api/auth/login`    | Log in and receive JWT + set httpOnly session cookie  |
+| GET    | `/api/auth/me`       | Restore authenticated session (token or cookie)       |
+| POST   | `/api/auth/logout`   | Clear current authenticated session cookie            |
 
 Register request body:
 
@@ -233,6 +235,11 @@ Login response:
   "user": { "id": "...", "username": "anna", "email": "...", "role": "User" }
 }
 ```
+
+Protected endpoints accept either:
+
+- `Authorization: Bearer <token>`
+- Session cookie (`cowork_token` by default)
 
 ### Rooms
 
@@ -280,9 +287,10 @@ Create room success response (201):
 | GET    | `/api/bookings/availability` | -           | Check room availability                           |
 | POST   | `/api/bookings`              | User/Admin  | Create a booking                                  |
 | PUT    | `/api/bookings/:id`          | Owner/Admin | Update a booking                                  |
-| DELETE | `/api/bookings/:id`          | Owner/Admin | Permanently delete a booking                      |
+| DELETE | `/api/bookings/:id`          | Owner/Admin | Cancel booking (soft delete)                      |
+| DELETE | `/api/bookings/:id/hard`     | Admin + permission | Permanently delete booking (requires `confirmText=DELETE`) |
 
-`DELETE /api/bookings/:id` is implemented as owner or admin in backend logic.
+`DELETE /api/bookings/:id` cancels the booking.
 If the requester is neither owner nor admin, the API returns `403 Not allowed`.
 
 Create booking request body:
@@ -344,16 +352,33 @@ Common error responses:
 
 ### Users
 
-| Method | Endpoint         | Auth       | Description                           |
-| ------ | ---------------- | ---------- | ------------------------------------- |
-| GET    | `/api/users/me`  | User/Admin | Get own profile                       |
-| PATCH  | `/api/users/me`  | User/Admin | Update own profile or change password |
-| GET    | `/api/users`     | Admin      | Get all users                         |
-| POST   | `/api/users`     | Admin      | Create a user                         |
-| PATCH  | `/api/users/:id` | Admin      | Update a user                         |
-| DELETE | `/api/users/:id` | Admin      | Delete a user                         |
+| Method | Endpoint              | Auth                  | Description                                        |
+| ------ | --------------------- | --------------------- | -------------------------------------------------- |
+| GET    | `/api/users/me`       | User/Admin            | Get own profile                                    |
+| PATCH  | `/api/users/me`       | User/Admin            | Update own profile or change password              |
+| GET    | `/api/users`          | Admin                 | Get all users (`?includeDeleted=true` supported)   |
+| POST   | `/api/users`          | Admin                 | Create a user                                      |
+| PATCH  | `/api/users/:id`      | Admin                 | Update a user                                      |
+| DELETE | `/api/users/:id`      | Admin                 | Soft delete user                                   |
+| POST   | `/api/users/:id/restore` | Admin              | Restore soft deleted user during grace period      |
+| DELETE | `/api/users/:id/hard` | Admin + permission    | Hard delete user (requires `confirmText=DELETE`)   |
 
 The frontend only requests `GET /api/users` for admins, which avoids expected `403` responses for regular users.
+
+### Settings
+
+| Method | Endpoint         | Auth                  | Description                    |
+| ------ | ---------------- | --------------------- | ------------------------------ |
+| GET    | `/api/settings`  | User/Admin            | Get current system settings    |
+| PATCH  | `/api/settings`  | Admin + permission    | Update system settings         |
+
+### Audit Logs
+
+| Method | Endpoint            | Auth                  | Description                    |
+| ------ | ------------------- | --------------------- | ------------------------------ |
+| GET    | `/api/audit-logs`   | Admin + permission    | Get paginated audit logs       |
+
+Supported audit log query params: `page`, `limit`, `action`, `targetType`, `actorId`, `actorRole`, `from`, `to`.
 
 ---
 
@@ -373,6 +398,8 @@ The server emits these events when data changes:
 | `user:created`     | A user was registered                                 |
 | `user:updated`     | A user was updated                                    |
 | `user:deleted`     | A user was deleted                                    |
+| `user:restored`    | A soft-deleted user was restored                      |
+| `settings:updated` | System settings were updated                          |
 
 Socket authentication is required: pass JWT in `socket.handshake.auth.token`.
 

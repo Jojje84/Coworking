@@ -20,6 +20,7 @@ const router = express.Router();
  *     tags: [Audit Logs]
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     parameters:
  *       - in: query
  *         name: page
@@ -35,6 +36,14 @@ const router = express.Router();
  *           type: string
  *       - in: query
  *         name: targetType
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: actorId
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: actorRole
  *         schema:
  *           type: string
  *       - in: query

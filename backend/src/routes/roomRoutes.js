@@ -28,6 +28,7 @@ const router = express.Router();
  *   get:
  *     summary: Get all rooms
  *     tags: [Rooms]
+ *     security: []
  *     responses:
  *       200:
  *         description: List of rooms
@@ -48,6 +49,7 @@ router.get("/", getRooms);
  *     tags: [Rooms]
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -76,6 +78,7 @@ router.post("/", protect, authorize("admin"), createRoom);
  *     tags: [Rooms]
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -145,6 +148,7 @@ router.patch(
  *     tags: [Rooms]
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id

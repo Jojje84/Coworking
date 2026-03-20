@@ -34,6 +34,7 @@ const router = express.Router();
  *     tags: [Bookings]
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     responses:
  *       200:
  *         description: List of bookings
@@ -61,6 +62,7 @@ router.get("/", protect, getBookings);
  *     tags: [Bookings]
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     parameters:
  *       - in: query
  *         name: start
@@ -106,6 +108,7 @@ router.get("/calendar", protect, getCalendarBookings);
  *   get:
  *     summary: Check room availability
  *     tags: [Bookings]
+ *     security: []
  *     parameters:
  *       - in: query
  *         name: roomId
@@ -155,6 +158,7 @@ router.get("/availability", checkAvailability);
  *     tags: [Bookings]
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -204,6 +208,7 @@ router.post("/", protect, createBooking);
  *     tags: [Bookings]
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -266,6 +271,7 @@ router.put("/:id", protect, validateObjectIdParam("id"), updateBooking);
  *     tags: [Bookings]
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -316,6 +322,7 @@ router.delete("/:id", protect, validateObjectIdParam("id"), deleteBooking);
  *     tags: [Bookings]
  *     security:
  *       - bearerAuth: []
+ *       - cookieAuth: []
  *     parameters:
  *       - in: path
  *         name: id

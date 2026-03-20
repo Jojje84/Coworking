@@ -26,13 +26,16 @@ const options = {
       {
         bearerAuth: [],
       },
+      {
+        cookieAuth: [],
+      },
     ],
     tags: [
       { name: "Auth", description: "Authentication endpoints" },
       { name: "Rooms", description: "Room management" },
       { name: "Bookings", description: "Booking management" },
       { name: "Users", description: "User profile and admin user management" },
-      { name: "Settings", description: "Admin system settings" },
+      { name: "Settings", description: "System settings" },
       { name: "Audit Logs", description: "System audit event history" },
     ],
     components: {
@@ -41,6 +44,11 @@ const options = {
           type: "http",
           scheme: "bearer",
           bearerFormat: "JWT",
+        },
+        cookieAuth: {
+          type: "apiKey",
+          in: "cookie",
+          name: process.env.AUTH_COOKIE_NAME || "cowork_token",
         },
       },
       schemas: {
