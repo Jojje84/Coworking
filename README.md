@@ -1,6 +1,6 @@
 <h1 align='center'>Coworking Space Booking Platform 💼</h1>
 
-<p align="center">A full-stack booking platform where users can register, log in, and book workspaces or conference rooms. Administrators can manage rooms, users, and bookings in real time.</p>
+<p align="center">A full-stack booking platform where users can log in and book workspaces or conference rooms. Self-registration can be enabled/disabled by admin settings. Administrators can manage rooms, users, and bookings in real time.</p>
 
 <p align="center">
   <img alt="Backend" src="https://img.shields.io/badge/Backend-Node.js%20%2B%20Express-43853D?logo=node.js&logoColor=white" />
@@ -14,9 +14,9 @@
 
 ## Features
 
-- JWT authentication with role-based access (User/Admin)
+- JWT authentication with role-based access (User/Admin) and fine-grained admin permissions
 - Room management (CRUD)
-- Booking management (create, update, delete as owner/admin)
+- Booking management (create, update, cancel as owner/admin + permission-gated hard delete)
 - Live updates with Socket.IO
 - Redis room caching (optional)
 - Interactive API docs with Swagger
@@ -201,12 +201,12 @@ Live Swagger docs: `https://coworking-backend-9ngl.onrender.com/api/docs/`
 
 ### Authentication
 
-| Method | Endpoint             | Description                                           |
-| ------ | -------------------- | ----------------------------------------------------- |
-| POST   | `/api/auth/register` | Register a new user                                   |
-| POST   | `/api/auth/login`    | Log in and receive JWT + set httpOnly session cookie  |
-| GET    | `/api/auth/me`       | Restore authenticated session (token or cookie)       |
-| POST   | `/api/auth/logout`   | Clear current authenticated session cookie            |
+| Method | Endpoint             | Description                                          |
+| ------ | -------------------- | ---------------------------------------------------- |
+| POST   | `/api/auth/register` | Register a new user                                  |
+| POST   | `/api/auth/login`    | Log in and receive JWT + set httpOnly session cookie |
+| GET    | `/api/auth/me`       | Restore authenticated session (token or cookie)      |
+| POST   | `/api/auth/logout`   | Clear current authenticated session cookie           |
 
 Register request body:
 
@@ -240,6 +240,8 @@ Protected endpoints accept either:
 
 - `Authorization: Bearer <token>`
 - Session cookie (`cowork_token` by default)
+
+Note: Self-registration can be disabled in system settings (`allowSelfRegistration=false`).
 
 ### Rooms
 
@@ -280,14 +282,14 @@ Create room success response (201):
 
 ### Bookings
 
-| Method | Endpoint                     | Auth        | Description                                       |
-| ------ | ---------------------------- | ----------- | ------------------------------------------------- |
-| GET    | `/api/bookings`              | User/Admin  | Get own bookings as User or all bookings as Admin |
-| GET    | `/api/bookings/calendar`     | User/Admin  | Get bookings in a date range for calendar view    |
-| GET    | `/api/bookings/availability` | -           | Check room availability                           |
-| POST   | `/api/bookings`              | User/Admin  | Create a booking                                  |
-| PUT    | `/api/bookings/:id`          | Owner/Admin | Update a booking                                  |
-| DELETE | `/api/bookings/:id`          | Owner/Admin | Cancel booking (soft delete)                      |
+| Method | Endpoint                     | Auth               | Description                                                |
+| ------ | ---------------------------- | ------------------ | ---------------------------------------------------------- |
+| GET    | `/api/bookings`              | User/Admin         | Get own bookings as User or all bookings as Admin          |
+| GET    | `/api/bookings/calendar`     | User/Admin         | Get bookings in a date range for calendar view             |
+| GET    | `/api/bookings/availability` | -                  | Check room availability                                    |
+| POST   | `/api/bookings`              | User/Admin         | Create a booking                                           |
+| PUT    | `/api/bookings/:id`          | Owner/Admin        | Update a booking                                           |
+| DELETE | `/api/bookings/:id`          | Owner/Admin        | Cancel booking (soft delete)                               |
 | DELETE | `/api/bookings/:id/hard`     | Admin + permission | Permanently delete booking (requires `confirmText=DELETE`) |
 
 `DELETE /api/bookings/:id` cancels the booking.
@@ -352,31 +354,31 @@ Common error responses:
 
 ### Users
 
-| Method | Endpoint              | Auth                  | Description                                        |
-| ------ | --------------------- | --------------------- | -------------------------------------------------- |
-| GET    | `/api/users/me`       | User/Admin            | Get own profile                                    |
-| PATCH  | `/api/users/me`       | User/Admin            | Update own profile or change password              |
-| GET    | `/api/users`          | Admin                 | Get all users (`?includeDeleted=true` supported)   |
-| POST   | `/api/users`          | Admin                 | Create a user                                      |
-| PATCH  | `/api/users/:id`      | Admin                 | Update a user                                      |
-| DELETE | `/api/users/:id`      | Admin                 | Soft delete user                                   |
-| POST   | `/api/users/:id/restore` | Admin              | Restore soft deleted user during grace period      |
-| DELETE | `/api/users/:id/hard` | Admin + permission    | Hard delete user (requires `confirmText=DELETE`)   |
+| Method | Endpoint                 | Auth               | Description                                      |
+| ------ | ------------------------ | ------------------ | ------------------------------------------------ |
+| GET    | `/api/users/me`          | User/Admin         | Get own profile                                  |
+| PATCH  | `/api/users/me`          | User/Admin         | Update own profile or change password            |
+| GET    | `/api/users`             | Admin              | Get all users (`?includeDeleted=true` supported) |
+| POST   | `/api/users`             | Admin              | Create a user                                    |
+| PATCH  | `/api/users/:id`         | Admin              | Update a user                                    |
+| DELETE | `/api/users/:id`         | Admin              | Soft delete user                                 |
+| POST   | `/api/users/:id/restore` | Admin              | Restore soft deleted user during grace period    |
+| DELETE | `/api/users/:id/hard`    | Admin + permission | Hard delete user (requires `confirmText=DELETE`) |
 
 The frontend only requests `GET /api/users` for admins, which avoids expected `403` responses for regular users.
 
 ### Settings
 
-| Method | Endpoint         | Auth                  | Description                    |
-| ------ | ---------------- | --------------------- | ------------------------------ |
-| GET    | `/api/settings`  | User/Admin            | Get current system settings    |
-| PATCH  | `/api/settings`  | Admin + permission    | Update system settings         |
+| Method | Endpoint        | Auth               | Description                 |
+| ------ | --------------- | ------------------ | --------------------------- |
+| GET    | `/api/settings` | User/Admin         | Get current system settings |
+| PATCH  | `/api/settings` | Admin + permission | Update system settings      |
 
 ### Audit Logs
 
-| Method | Endpoint            | Auth                  | Description                    |
-| ------ | ------------------- | --------------------- | ------------------------------ |
-| GET    | `/api/audit-logs`   | Admin + permission    | Get paginated audit logs       |
+| Method | Endpoint          | Auth               | Description              |
+| ------ | ----------------- | ------------------ | ------------------------ |
+| GET    | `/api/audit-logs` | Admin + permission | Get paginated audit logs |
 
 Supported audit log query params: `page`, `limit`, `action`, `targetType`, `actorId`, `actorRole`, `from`, `to`.
 
@@ -407,13 +409,15 @@ Socket authentication is required: pass JWT in `socket.handshake.auth.token`.
 
 ## Roles
 
-| Role  | Permissions                                                                  |
-| ----- | ---------------------------------------------------------------------------- |
-| User  | Register, log in, create, update and delete own bookings, update own profile |
-| Admin | All User permissions plus manage all rooms, users and bookings               |
+| Role  | Permissions                                                                                |
+| ----- | ------------------------------------------------------------------------------------------ |
+| User  | Log in, create/update/cancel own bookings, update own profile                              |
+| Admin | All User permissions plus manage rooms/users/bookings (extra actions are permission-gated) |
 
 Role values in API responses are `"User"` and `"Admin"`.
 Frontend may map roles internally to lowercase (`"user"`, `"admin"`).
+
+Frontend note: `Superadmin` is a UI label for an `admin` user that has one or more elevated admin permissions (for example `manageAdmins`, `manageSettings`, `viewAuditLogs`, `bookingHardDelete`, `userHardDelete`). It is not a separate backend role value.
 
 ---
 

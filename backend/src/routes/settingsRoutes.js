@@ -12,7 +12,7 @@ const router = express.Router();
  * @swagger
  * tags:
  *   name: Settings
- *   description: Admin system settings
+ *   description: System settings
  */
 
 /**
