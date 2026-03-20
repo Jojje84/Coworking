@@ -1,6 +1,6 @@
 import { Booking } from "../models/Booking.js";
 import { Room } from "../models/Room.js";
-import { AppError } from "../utils/appError.js";
+import { AppError } from "../utils/AppError.js";
 import { isValidObjectId } from "../utils/validation.js";
 import { getUserDeleteGraceDays } from "../config/env.js";
 import { safeRecordAuditLog } from "./auditLogService.js";

@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken";
-import { AppError } from "../utils/appError.js";
+import { AppError } from "../utils/AppError.js";
 import { getJwtSecret } from "../config/env.js";
 import { User } from "../models/User.js";
 

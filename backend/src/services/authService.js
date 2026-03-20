@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { User } from "../models/User.js";
-import { AppError } from "../utils/appError.js";
+import { AppError } from "../utils/AppError.js";
 import { isValidEmail, isNonEmptyString } from "../utils/validation.js";
 import { toPermissionResponse } from "../utils/permissions.js";
 import { getJwtSecret } from "../config/env.js";

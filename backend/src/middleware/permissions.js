@@ -1,5 +1,5 @@
 import { User } from "../models/User.js";
-import { AppError } from "../utils/appError.js";
+import { AppError } from "../utils/AppError.js";
 import { PERMISSION_KEYS, hasPermission } from "../utils/permissions.js";
 
 export function requirePermission(permissionKey) {

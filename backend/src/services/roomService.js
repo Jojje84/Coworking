@@ -1,6 +1,6 @@
 import { Room } from "../models/Room.js";
 import { getRedis } from "../config/redis.js";
-import { AppError } from "../utils/appError.js";
+import { AppError } from "../utils/AppError.js";
 import { isNonEmptyString } from "../utils/validation.js";
 import { logger } from "../utils/logger.js";
 

@@ -1,4 +1,4 @@
-import { AppError } from "../utils/appError.js";
+import { AppError } from "../utils/AppError.js";
 import { createUserService } from "../services/userService.js";
 import { getOrCreateAppSettings } from "../services/settingsService.js";
 import { safeRecordAuditLog } from "../services/auditLogService.js";

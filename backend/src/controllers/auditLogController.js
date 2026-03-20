@@ -1,5 +1,5 @@
 import { AuditLog } from "../models/AuditLog.js";
-import { AppError } from "../utils/appError.js";
+import { AppError } from "../utils/AppError.js";
 
 function toPositiveInt(value, fallback) {
   const parsed = Number.parseInt(String(value || ""), 10);

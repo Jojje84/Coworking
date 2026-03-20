@@ -1,4 +1,4 @@
-import { AppError } from "../utils/appError.js";
+import { AppError } from "../utils/AppError.js";
 import { isValidObjectId } from "../utils/validation.js";
 import {
   syncCompletedBookings,
