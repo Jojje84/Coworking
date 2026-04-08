@@ -1,0 +1,9 @@
+{
+  "name": "coworking",
+  "private": true,
+  "scripts": {
+    "ci:backend": "npm --prefix backend run format:check && npm --prefix backend run test:ci",
+    "ci:frontend": "node -e \"require('node:fs').rmSync('frontend/dist',{ recursive: true, force: true })\" && npm --prefix frontend exec prettier --check . --ignore-path .prettierignore && npm --prefix frontend run typecheck && npm --prefix frontend run build && node -e \"require('node:fs').rmSync('frontend/dist',{ recursive: true, force: true })\"",
+    "ci:local": "npm run ci:backend && npm run ci:frontend"
+  }
+}
