@@ -1,0 +1,9 @@
+{
+  "name": "coworking",
+  "private": true,
+  "scripts": {
+    "ci:backend": "npm --prefix backend run format:check && npm --prefix backend run test:ci",
+    "ci:frontend": "npm --prefix frontend run format:check && npm --prefix frontend run typecheck && npm --prefix frontend run build",
+    "ci:local": "npm run ci:backend && npm run ci:frontend"
+  }
+}
